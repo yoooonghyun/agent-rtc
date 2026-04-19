@@ -1,23 +1,47 @@
 {
   "name": "agent-rtc",
   "version": "0.3.0",
-  "description": "Real-time communication broker for inter-agent messaging via AMQP",
+  "description": "Real-time communication for inter-agent messaging via AMQP (RabbitMQ). MCP server for Claude Code.",
   "type": "module",
+  "bin": {
+    "agent-rtc": "dist/amqp-channel.js"
+  },
+  "files": [
+    "dist/"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.mcp.json",
+    "prepublishOnly": "npm run build",
     "start": "node dist/amqp-channel.js"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "mcp",
+    "claude",
+    "agent",
+    "rtc",
+    "amqp",
+    "rabbitmq",
+    "inter-agent",
+    "messaging"
+  ],
+  "author": "yoooonghyun",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yoooonghyun/agent-rtc.git"
+  },
+  "homepage": "https://github.com/yoooonghyun/agent-rtc",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@types/node": "^25.6.0",
     "amqplib": "^1.0.3",
-    "typescript": "^6.0.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/amqplib": "^0.10.8"
+    "@types/amqplib": "^0.10.8",
+    "@types/node": "^25.6.0",
+    "typescript": "^6.0.3"
   }
 }
