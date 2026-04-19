@@ -1,4 +1,3 @@
-"use client";
 
 import { usePoll } from "../hooks/use-poll";
 

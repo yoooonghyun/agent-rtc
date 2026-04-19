@@ -1,4 +1,3 @@
-"use client";
 
 import { useState, useEffect, useCallback } from "react";
 
@@ -8,7 +7,9 @@ export function usePoll<T>(url: string, intervalMs = 2000) {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: { "Accept": "application/json" },
+      });
       if (!res.ok) throw new Error(`${res.status}`);
       setData(await res.json());
       setError(null);

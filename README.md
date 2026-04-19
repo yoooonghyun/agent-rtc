@@ -14,8 +14,7 @@ Real-time communication broker for inter-agent messaging, permission relay, and 
 
 ```
                     ┌─────────────────────────────┐
-                    │   Next.js Custom Server       │
-                    │   (single port)               │
+                    │   Express Server (single port)│
                     │                               │
 Session A ──MCP──▶  │  /mcp    → MCP Streamable HTTP│
 Session B ──MCP──▶  │  /mcp    → MCP Streamable HTTP│  ← shared state
@@ -32,15 +31,16 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design.
 # Install
 npm install
 
-# Development (dashboard + API + MCP on port 8800)
+# Development (Express API on :8800, Vite React on :5173)
 npm run dev
 
-# Production
+# Production (single server on :8800)
 npm run build
 npm start
 ```
 
-Open http://localhost:8800 for the dashboard.
+- Development: open http://localhost:5173 (Vite proxies API to :8800)
+- Production: open http://localhost:8800 (Express serves everything)
 
 ## Connecting Agents
 
@@ -118,7 +118,8 @@ When any agent needs tool approval, all masters receive the request. Respond wit
 ## Tech Stack
 
 - **Runtime**: Node.js (v25+)
-- **Framework**: Next.js 16 (custom server)
+- **Server**: Express 5
+- **Client**: React 19 + Vite 8
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS v4 with Claude-inspired parchment theme
 - **Protocol**: MCP Streamable HTTP (@modelcontextprotocol/server v2)

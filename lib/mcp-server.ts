@@ -7,7 +7,7 @@ import {
   getMasters,
   addMaster,
   removeMaster,
-} from "./broker-state";
+} from "./broker-state.js";
 
 /**
  * Creates an MCP server instance for a specific agent.
@@ -17,16 +17,17 @@ export function createAgentMcpServer(agentId: string, displayName: string): McpS
   // Auto-register agent on connection
   registerAgent(agentId, displayName);
 
-  const server = new McpServer({
-    name: "agent-rtc",
-    version: "0.2.0",
-    instructions: [
-      `Messages from other agents arrive as <channel source="agent-rtc" from="agentId" from_name="displayName">.`,
-      `Use the reply tool to respond. Pass the from value as targetAgent.`,
-      `Use the list_agents tool to see who is online.`,
-      `Your identity: agentId="${agentId}", displayName="${displayName}".`,
-    ].join(" "),
-  });
+  const instructions = [
+    `Messages from other agents arrive as <channel source="agent-rtc" from="agentId" from_name="displayName">.`,
+    `Use the reply tool to respond. Pass the from value as targetAgent.`,
+    `Use the list_agents tool to see who is online.`,
+    `Your identity: agentId="${agentId}", displayName="${displayName}".`,
+  ].join(" ");
+
+  const server = new McpServer(
+    { name: "agent-rtc", version: "0.2.0" },
+    { instructions }
+  );
 
   server.registerTool("reply", {
     description: "Send a message to another agent via the broker",

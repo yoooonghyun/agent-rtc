@@ -1,14 +1,33 @@
-"use client";
 
-import { useCallback } from "react";
-import { usePoll } from "./hooks/use-poll";
-import { AgentList } from "./components/agent-list";
-import { MasterPool } from "./components/master-pool";
-import { MessageLogView } from "./components/message-log";
-import { StatsBar } from "./components/stats-bar";
+import { useCallback, useEffect, useState } from "react";
+import { AgentList } from "./agent-list";
+import { MasterPool } from "./master-pool";
+import { MessageLogView } from "./message-log";
+import { StatsBar } from "./stats-bar";
 
-export default function Dashboard() {
-  const { data: masters, refresh: refreshMasters } = usePoll<string[]>("/api/masters");
+export function Dashboard() {
+  const [masters, setMasters] = useState<string[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const refreshMasters = useCallback(async () => {
+    try {
+      const res = await fetch("/api/masters", {
+        headers: { Accept: "application/json" },
+      });
+      if (res.ok) setMasters(await res.json());
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    refreshMasters();
+    const id = setInterval(refreshMasters, 2000);
+    return () => clearInterval(id);
+  }, [mounted, refreshMasters]);
 
   const addMaster = useCallback(
     async (agentId: string) => {
@@ -34,18 +53,12 @@ export default function Dashboard() {
     [refreshMasters]
   );
 
-  return (
-    <div className="mx-auto max-w-4xl px-6 py-10">
-      {/* Header */}
-      <header className="mb-10">
-        <h1 className="font-serif text-4xl font-medium leading-tight text-near-black">
-          Agent RTC
-        </h1>
-        <p className="mt-2 text-olive-gray">
-          Real-time communication broker for inter-agent messaging
-        </p>
-      </header>
+  if (!mounted) {
+    return <p className="text-stone-gray">Loading...</p>;
+  }
 
+  return (
+    <>
       {/* Stats */}
       <section className="mb-10 rounded-large border border-border-cream bg-ivory p-6 shadow-[rgba(0,0,0,0.05)_0px_4px_24px]">
         <StatsBar />
@@ -57,7 +70,7 @@ export default function Dashboard() {
           Agents
         </h2>
         <AgentList
-          masters={masters ?? []}
+          masters={masters}
           onAddMaster={addMaster}
           onRemoveMaster={removeMaster}
         />
@@ -69,7 +82,7 @@ export default function Dashboard() {
           Master Pool
         </h2>
         <div className="rounded-comfortable border border-border-cream bg-ivory p-4">
-          <MasterPool masters={masters ?? []} />
+          <MasterPool masters={masters} />
         </div>
       </section>
 
@@ -82,11 +95,6 @@ export default function Dashboard() {
           <MessageLogView />
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="border-t border-border-cream pt-6 text-center text-xs text-stone-gray">
-        MCP endpoint: <code className="font-mono text-olive-gray">/mcp?agentId=...&displayName=...</code>
-      </footer>
-    </div>
+    </>
   );
 }

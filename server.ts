@@ -1,115 +1,149 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { parse } from "node:url";
-import next from "next";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import express from "express";
+import { createMcpExpressApp } from "@modelcontextprotocol/express";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
 import { isInitializeRequest } from "@modelcontextprotocol/server";
 import { createAgentMcpServer } from "./lib/mcp-server.js";
-import { handleApi } from "./lib/api-handler.js";
+import {
+  registerAgent,
+  getAgents,
+  sendMessage,
+  pollMessages,
+  getMasters,
+  addMaster,
+  removeMaster,
+  getStats,
+  getMessageLog,
+} from "./lib/broker-state.js";
 
-const dev = process.env.NODE_ENV !== "production";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const port = parseInt(process.env.PORT ?? "8800", 10);
-
-const app = next({ dev });
-const handle = app.getRequestHandler();
 
 // MCP session store
 const transports = new Map<string, NodeStreamableHTTPServerTransport>();
 
-function readBody(req: IncomingMessage): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    req.on("data", (chunk: Buffer) => (data += chunk));
-    req.on("end", () => {
-      try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
-    });
-  });
-}
+const app = express();
 
-async function handleMcp(req: IncomingMessage, res: ServerResponse) {
-  const method = req.method ?? "";
+// --- MCP endpoint ---
+
+const mcpApp = createMcpExpressApp();
+
+mcpApp.post("/mcp", async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
-  if (method === "POST") {
-    const body = await readBody(req);
-
-    // Existing session
-    if (sessionId && transports.has(sessionId)) {
-      await transports.get(sessionId)!.handleRequest(req, res, body);
-      return;
-    }
-
-    // New session
-    if (!sessionId && isInitializeRequest(body)) {
-      const agentId = `agent-${randomUUID().slice(0, 8)}`;
-      const displayName = (req.headers["x-agent-name"] as string) ?? "Agent";
-
-      const server = createAgentMcpServer(agentId, displayName);
-      const transport = new NodeStreamableHTTPServerTransport({
-        sessionIdGenerator: () => randomUUID(),
-        onsessioninitialized: (sid) => transports.set(sid, transport),
-      });
-
-      transport.onclose = () => {
-        if (transport.sessionId) transports.delete(transport.sessionId);
-      };
-
-      await server.connect(transport);
-      await transport.handleRequest(req, res, body);
-      return;
-    }
-
-    res.writeHead(400, { "content-type": "application/json" });
-    res.end(JSON.stringify({ error: "Invalid request" }));
+  if (sessionId && transports.has(sessionId)) {
+    await transports.get(sessionId)!.handleRequest(req, res, req.body);
     return;
   }
 
-  if (method === "GET") {
-    if (sessionId && transports.has(sessionId)) {
-      await transports.get(sessionId)!.handleRequest(req, res);
-      return;
-    }
-    res.writeHead(400, { "content-type": "application/json" });
-    res.end(JSON.stringify({ error: "No session" }));
+  if (!sessionId && isInitializeRequest(req.body)) {
+    const agentId = `agent-${randomUUID().slice(0, 8)}`;
+    const displayName = (req.headers["x-agent-name"] as string) ?? "Agent";
+
+    const mcpServer = createAgentMcpServer(agentId, displayName);
+    let newTransport: NodeStreamableHTTPServerTransport;
+    newTransport = new NodeStreamableHTTPServerTransport({
+      sessionIdGenerator: () => randomUUID(),
+      onsessioninitialized: (sid: string) => { transports.set(sid, newTransport); },
+    });
+
+    newTransport.onclose = () => {
+      if (newTransport.sessionId) transports.delete(newTransport.sessionId);
+    };
+
+    await mcpServer.connect(newTransport);
+    await newTransport.handleRequest(req, res, req.body);
     return;
   }
 
-  if (method === "DELETE") {
-    if (sessionId && transports.has(sessionId)) {
-      await transports.get(sessionId)!.close();
-      transports.delete(sessionId);
-    }
-    res.writeHead(204);
-    res.end();
+  res.status(400).json({ error: "Invalid request" });
+});
+
+mcpApp.get("/mcp", async (req, res) => {
+  const sessionId = req.headers["mcp-session-id"] as string | undefined;
+  if (sessionId && transports.has(sessionId)) {
+    await transports.get(sessionId)!.handleRequest(req, res);
     return;
   }
+  res.status(400).json({ error: "No session" });
+});
 
-  res.writeHead(405, { "content-type": "application/json" });
-  res.end(JSON.stringify({ error: "Method not allowed" }));
-}
+mcpApp.delete("/mcp", async (req, res) => {
+  const sessionId = req.headers["mcp-session-id"] as string | undefined;
+  if (sessionId && transports.has(sessionId)) {
+    await transports.get(sessionId)!.close();
+    transports.delete(sessionId);
+  }
+  res.status(204).end();
+});
 
-app.prepare().then(() => {
-  createServer(async (req, res) => {
-    const parsedUrl = parse(req.url ?? "", true);
+app.use(mcpApp);
 
-    // MCP endpoint
-    if (parsedUrl.pathname === "/mcp") {
-      await handleMcp(req, res);
-      return;
-    }
+// --- REST API ---
 
-    // REST API — shared state with MCP
-    if (parsedUrl.pathname?.startsWith("/api/")) {
-      const handled = await handleApi(req, res);
-      if (handled) return;
-    }
+const api = express.Router();
+api.use(express.json());
 
-    // Everything else — Next.js (dashboard UI)
-    await handle(req, res, parsedUrl);
-  }).listen(port, () => {
-    console.log(`agent-rtc listening on http://127.0.0.1:${port}`);
-    console.log(`  Dashboard: http://127.0.0.1:${port}/`);
-    console.log(`  MCP:       http://127.0.0.1:${port}/mcp`);
-    console.log(`  API:       http://127.0.0.1:${port}/api/*`);
-  });
+api.get("/health", (_req, res) => { res.send("ok"); });
+
+api.post("/register", (req, res) => {
+  const { agentId, displayName } = req.body;
+  if (!agentId || !displayName) return res.status(400).json({ error: "agentId and displayName required" });
+  registerAgent(agentId, displayName);
+  res.json({ registered: agentId });
+});
+
+api.post("/send", (req, res) => {
+  const { from, to, text } = req.body;
+  if (!sendMessage(from, to, text)) return res.status(404).json({ error: `agent not found: ${to}` });
+  res.json({ delivered: true });
+});
+
+api.get("/poll", (req, res) => {
+  const agentId = req.query.agentId as string;
+  if (!agentId) return res.status(400).json({ error: "agentId required" });
+  const messages = pollMessages(agentId);
+  if (messages === null) return res.status(404).json({ error: `agent not found: ${agentId}` });
+  res.json({ messages });
+});
+
+api.get("/agents", (_req, res) => { res.json(getAgents()); });
+api.get("/masters", (_req, res) => { res.json(getMasters()); });
+
+api.post("/masters/add", (req, res) => {
+  const { masterAgentId } = req.body;
+  if (!masterAgentId) return res.status(400).json({ error: "masterAgentId required" });
+  addMaster(masterAgentId);
+  res.json({ added: masterAgentId });
+});
+
+api.post("/masters/remove", (req, res) => {
+  const { masterAgentId } = req.body;
+  if (!masterAgentId) return res.status(400).json({ error: "masterAgentId required" });
+  removeMaster(masterAgentId);
+  res.json({ removed: masterAgentId });
+});
+
+api.get("/stats", (_req, res) => { res.json(getStats()); });
+api.get("/messages", (_req, res) => { res.json(getMessageLog()); });
+
+app.use("/api", api);
+
+// --- Static files (production) ---
+
+const clientDir = path.join(__dirname, "client");
+app.use(express.static(clientDir));
+app.get("/{*path}", (_req, res) => {
+  res.sendFile(path.join(clientDir, "index.html"));
+});
+
+// --- Start ---
+
+app.listen(port, () => {
+  console.log(`agent-rtc listening on http://127.0.0.1:${port}`);
+  console.log(`  Dashboard: http://127.0.0.1:${port}/`);
+  console.log(`  MCP:       http://127.0.0.1:${port}/mcp`);
+  console.log(`  API:       http://127.0.0.1:${port}/api/*`);
 });
