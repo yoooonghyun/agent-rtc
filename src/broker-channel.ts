@@ -5,13 +5,14 @@ import {
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import http from "node:http";
 import type { BrokerChannelConfig, BrokerReplyArgs, QueuedMessage } from "./types.js";
 
 const config: BrokerChannelConfig = {
   brokerUrl: process.env.BROKER_URL ?? "http://127.0.0.1:8000",
-  agentId: process.env.AGENT_ID ?? "agent-default",
-  displayName: process.env.AGENT_DISPLAY_NAME ?? "Agent",
+  agentId: `agent-${randomUUID().slice(0, 8)}`,
+  displayName: process.env.AGENT_NAME ?? "Agent",
   pollIntervalMs: parseInt(process.env.POLL_INTERVAL_MS ?? "1000", 10),
 };
 
