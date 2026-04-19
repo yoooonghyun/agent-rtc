@@ -1,46 +1,23 @@
 {
   "name": "agent-rtc",
-  "version": "0.2.0",
-  "description": "Real-time communication broker for inter-agent messaging, permission relay, and adaptive feedback",
+  "version": "0.3.0",
+  "description": "Real-time communication broker for inter-agent messaging via AMQP",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"tsx server.ts\" \"vite --port 5173\"",
-    "dev:server": "tsx server.ts",
-    "dev:client": "vite --port 5173",
-    "build": "tsc -p tsconfig.server.json && vite build",
-    "start": "node dist/server.js",
-    "build:mcp": "tsc -p tsconfig.mcp.json",
-    "test": "node --test dist/**/*.test.js"
+    "build": "tsc -p tsconfig.mcp.json",
+    "start": "node dist/amqp-channel.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@cfworker/json-schema": "^4.1.1",
-    "@modelcontextprotocol/express": "^2.0.0-alpha.2",
-    "@modelcontextprotocol/node": "^2.0.0-alpha.2",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@modelcontextprotocol/server": "^2.0.0-alpha.2",
     "@types/node": "^25.6.0",
     "amqplib": "^1.0.3",
-    "better-sqlite3": "^12.9.0",
-    "express": "^5.2.1",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
-    "tsx": "^4.21.0",
     "typescript": "^6.0.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.2.2",
-    "@types/amqplib": "^0.10.8",
-    "@types/better-sqlite3": "^7.6.13",
-    "@types/express": "^5.0.6",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "concurrently": "^9.2.1",
-    "tailwindcss": "^4.2.2",
-    "vite": "^8.0.8"
+    "@types/amqplib": "^0.10.8"
   }
 }

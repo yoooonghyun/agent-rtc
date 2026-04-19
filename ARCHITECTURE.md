@@ -1,104 +1,68 @@
 # Agent RTC — Architecture
 
-## Current: Express + stdio broker-channel (v6)
+## Current: AMQP Transport (v7)
 
 ```
-Session A ──stdio→ broker-channel ──┐
-                                     ├──HTTP──▶ Express Server (port 8800)
-Session B ──stdio→ broker-channel ──┘          ├── /api/*  → REST API
-                                               ├── /*      → Dashboard (React/Vite)
-Browser ──HTTP──────────────────────────────────┘
-
-Storage: SQLite (data/agent-rtc.db)
+Session A ──stdio→ amqp-channel ──AMQP──▶ RabbitMQ ◀──AMQP── amqp-channel ←stdio── Session B
+                                            │
+                                     Management UI
+                                     (localhost:15672)
 ```
 
 ### Components
 
 | File | Role |
 |---|---|
-| `server.ts` | Express server: REST API + static files |
-| `lib/broker-state.ts` | SQLite-backed state (agents, queues, masters, message log) |
-| `lib/db.ts` | SQLite initialization + auto-migration |
-| `src/broker-channel.ts` | stdio MCP server — connects Claude Code to the broker via polling |
-| `app/` | React dashboard (Vite build) |
+| `src/amqp-channel.ts` | MCP ↔ AMQP adapter. Connects to RabbitMQ, declares queues, subscribes, exposes MCP tools |
+| `src/types.ts` | Shared type definitions |
+
+### How it works
+
+1. Each agent connects to RabbitMQ and declares an exclusive auto-delete queue (`agent.{agentId}`)
+2. Queue is bound to topic exchange `agent-rtc` with routing key `agent.{agentId}`
+3. Messages are published to exchange with target agent's routing key
+4. Messages arrive instantly via AMQP subscribe — no polling
+5. When session ends, AMQP connection closes, queue is auto-deleted by RabbitMQ
 
 ### Agent Connection
-
-Agents connect via stdio broker-channel. Each Claude Code session spawns `broker-channel.js` as an MCP subprocess:
 
 ```json
 {
   "mcpServers": {
     "agent-rtc": {
       "command": "node",
-      "args": ["dist/broker-channel.js"],
+      "args": ["dist/amqp-channel.js"],
       "env": {
-        "BROKER_URL": "http://127.0.0.1:8800/api",
-        "AGENT_NAME": "My Agent"
+        "AMQP_URL": "amqp://localhost",
+        "AGENT_NAME": "My Agent",
+        "IS_MASTER": "false"
       }
     }
   }
 }
 ```
 
-AgentId is auto-generated (`agent-<8hex>`). Only `AGENT_NAME` is required.
-
-### Message Delivery
-
-broker-channel polls `GET /api/poll` every 1 second. Poll also serves as heartbeat — agents inactive for 30 seconds are automatically removed.
-
-### MCP Tools (via broker-channel)
+### MCP Tools
 
 | Tool | Description |
 |---|---|
-| `reply(targetAgent, text)` | Send message to another agent |
-| `list_agents()` | List all registered agents |
-| `add_master(masterAgentId)` | Add global master |
-| `remove_master(masterAgentId)` | Remove global master |
-| `list_masters()` | List master pool |
+| `reply(targetAgent, text)` | Publish message to target agent's queue |
+| `list_agents()` | Query RabbitMQ Management API for active agent queues |
+| `add_master(masterAgentId)` | Bind agent's perm queue to `permission.*` routing key |
+| `remove_master(masterAgentId)` | Unbind from `permission.*` |
+| `list_masters()` | Query Management API for `permission.*` bindings |
 
-### REST API
+### Permission Relay
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/health` | GET | Health check |
-| `/api/register` | POST | Register agent `{ agentId, displayName }` |
-| `/api/send` | POST | Send message `{ from, to, text }` |
-| `/api/poll` | GET | Poll messages `?agentId=<id>` (also heartbeat) |
-| `/api/agents` | GET | List agents |
-| `/api/masters` | GET | List master pool |
-| `/api/masters/add` | POST | Add master `{ masterAgentId }` |
-| `/api/masters/remove` | POST | Remove master `{ masterAgentId }` |
-| `/api/stats` | GET | Agent count, master count, total messages |
-| `/api/messages` | GET | Recent message log (last 20) |
+- Masters bind `perm.{agentId}` queue to `permission.*` routing key
+- Permission requests are published with routing key `permission.{agentId}`
+- All masters receive fan-out — first verdict wins
+- Own permission requests are skipped
 
 ### Key Decisions
 
-- **stdio over MCP HTTP**: MCP Streamable HTTP can't push notifications — Claude Code doesn't open persistent GET SSE stream. stdio broker-channel with polling is reliable.
-- **SQLite storage**: Persists agents, masters, message log across restarts. Auto-migrating schema.
-- **Poll-based heartbeat**: No separate heartbeat endpoint. Poll requests update `lastHeartbeat`. Agents inactive 30s are swept.
-- **Express + Vite**: Express serves REST API + static React build. Vite for dev HMR.
-
----
-
-## Historical Versions
-
-### v1: Direct Port-to-Port (bridge-channel)
-
-Each session ran its own HTTP + MCP stdio server. Required port allocation and knowledge of the other's port.
-
-### v2: Central Broker (standalone broker.ts + broker-channel.ts)
-
-Separated broker (HTTP) from channel (MCP stdio). Agents communicated via agentId.
-
-### v3: Permission Relay with Global Master Pool
-
-Permission requests fan-out to all masters. First verdict wins.
-
-### v4: Adaptive Feedback Agent
-
-TaskCompleted hook triggers adaptive-feedback subagent in-session.
-
-### v5: Next.js Custom Server + MCP HTTP
-
-Attempted MCP Streamable HTTP endpoint. Failed — hydration issues with Next.js custom server, and MCP HTTP can't push notifications. Abandoned.
+- **AMQP over HTTP polling**: Instant push, reliable delivery, auto-cleanup
+- **RabbitMQ exclusive queues**: Auto-deleted on disconnect — no stale agents
+- **Queue arguments for metadata**: `x-agent-name` stores display name for discovery
+- **No custom server**: RabbitMQ handles routing, Management UI serves as dashboard
+- **IS_MASTER env var**: Auto-registers as master on startup
