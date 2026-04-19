@@ -2,11 +2,13 @@
   "mcpServers": {
     "agent-rtc": {
       "command": "node",
-      "args": ["dist/amqp-channel.js"],
+      "args": [
+        "dist/amqp-channel.js"
+      ],
       "env": {
         "AMQP_URL": "amqp://localhost",
         "AGENT_NAME": "${AGENT_NAME:-Agent}",
-        "IS_MASTER": "${IS_MASTER:-false}"
+        "IS_MASTER": "${IS_MASTER:-true}"
       }
     }
   }
