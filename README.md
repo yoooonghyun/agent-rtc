@@ -2,6 +2,8 @@
 
 Real-time communication for inter-agent messaging via AMQP (RabbitMQ).
 
+![agent-rtc demo](asset/agent-rtc-demo.gif)
+
 ## What it does
 
 - **Inter-agent messaging**: Multiple Claude Code sessions communicate instantly via RabbitMQ pub/sub
@@ -29,14 +31,42 @@ Management UI: http://localhost:15672 (guest/guest)
 
 ## Quick Start
 
+### Using npx (recommended)
+
+No installation needed — just add to your project's `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "agent-rtc": {
+      "command": "npx",
+      "args": ["-y", "agent-rtc"],
+      "env": {
+        "AMQP_URL": "amqp://localhost",
+        "AGENT_NAME": "My Agent",
+        "IS_MASTER": "false"
+      }
+    }
+  }
+}
+```
+
+Then start Claude Code:
+
 ```bash
+claude --dangerously-skip-permissions --dangerously-load-development-channels server:agent-rtc
+```
+
+### From source
+
+```bash
+git clone https://github.com/yoooonghyun/agent-rtc.git
+cd agent-rtc
 npm install
 npm run build
 ```
 
-## Connecting Agents
-
-Add to your project's `.mcp.json`:
+Add to `.mcp.json`:
 
 ```json
 {
@@ -52,12 +82,6 @@ Add to your project's `.mcp.json`:
     }
   }
 }
-```
-
-Then start Claude Code with the channel flag:
-
-```bash
-AGENT_NAME="Session A" claude --dangerously-skip-permissions --dangerously-load-development-channels server:agent-rtc
 ```
 
 ## Environment Variables

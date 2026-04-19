@@ -1,6 +1,6 @@
 {
   "name": "agent-rtc",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "description": "Real-time communication for inter-agent messaging via AMQP (RabbitMQ). MCP server for Claude Code.",
   "type": "module",
   "bin": {

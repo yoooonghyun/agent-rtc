@@ -4,3 +4,4 @@ data/
 temp/
 .playwright-mcp/
 *.png
+.DS_Store
