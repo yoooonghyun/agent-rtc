@@ -28,3 +28,4 @@ Real-time communication broker for inter-agent messaging, permission relay, and 
 ## Learned Rules
 
 - When working with libraries or frameworks (MCP SDK, Node.js APIs, etc.), use the context7 MCP tool (`resolve-library-id` → `query-docs`) to fetch current documentation before implementation. Do not rely solely on training data.
+- Write modular, reusable code. Extract shared logic into `lib/` modules. Avoid duplicating logic across route handlers, MCP servers, or components.

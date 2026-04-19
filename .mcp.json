@@ -6,7 +6,7 @@
         "dist/broker-channel.js"
       ],
       "env": {
-        "BROKER_URL": "http://127.0.0.1:8800",
+        "BROKER_URL": "http://127.0.0.1:8800/api",
         "AGENT_ID": "session-a",
         "AGENT_DISPLAY_NAME": "Session A"
       }
