@@ -2,10 +2,13 @@
   "mcpServers": {
     "agent-rtc": {
       "command": "node",
-      "args": ["dist/broker-channel.js"],
+      "args": [
+        "dist/amqp-channel.js"
+      ],
       "env": {
-        "BROKER_URL": "http://127.0.0.1:8800/api",
-        "AGENT_NAME": "${AGENT_NAME:-Agent}"
+        "AMQP_URL": "amqp://localhost",
+        "AGENT_NAME": "${AGENT_NAME:-Agent}",
+        "IS_MASTER": "${IS_MASTER:-true}"
       }
     }
   }
