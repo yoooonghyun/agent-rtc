@@ -47,15 +47,26 @@ Look for user corrections and confirmations in the transcript:
 
 **Action**: Add or update rules in `CLAUDE.md` under a `## Learned Rules` section.
 
-### 4. Detect Rule Conflicts
+### 4. Detect Rule Conflicts and Duplicates
 
 Compare rules across all tooling files:
 
 - Contradictions between CLAUDE.md and agent prompts
 - Hooks that conflict with stated guidelines
-- Duplicate or overlapping rules
+- Duplicate or overlapping rules across CLAUDE.md, agents, skills, and hooks
+- Rules in CLAUDE.md that are already enforced by a skill or agent definition
 
-**Action**: Flag conflicts in output. Propose resolution by updating the less specific rule.
+**Action**: Remove the duplicate from the less authoritative source. If a skill already defines a rule, remove it from CLAUDE.md. Flag contradictions in output.
+
+### 5. Check Modularity and Reuse
+
+Review recently changed tooling for modularity:
+
+- Agent prompts that duplicate logic already in a skill or another agent
+- Hook configurations that could be consolidated
+- Shared patterns across agents that should be extracted into a skill
+
+**Action**: Extract shared logic into skills or consolidate duplicates.
 
 ## Output Format
 
