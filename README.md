@@ -4,8 +4,7 @@ Real-time communication broker for inter-agent messaging, permission relay, and 
 
 ## What it does
 
-- **Inter-agent messaging**: Multiple Claude Code sessions communicate via a central broker — messages are pushed instantly via MCP SSE
-- **MCP HTTP endpoint**: Agents connect via URL — no local file deployment needed
+- **Inter-agent messaging**: Multiple Claude Code sessions communicate via a central broker with stdio MCP channels
 - **Web dashboard**: Monitor agents, manage master pool, view message activity
 - **Permission relay**: When an agent needs tool approval, the request fans out to all registered master agents — first verdict wins
 - **Adaptive feedback**: A TaskCompleted hook triggers an in-session agent that improves project tooling
@@ -13,14 +12,13 @@ Real-time communication broker for inter-agent messaging, permission relay, and 
 ## Architecture
 
 ```
-                    ┌─────────────────────────────┐
-                    │   Express Server (single port)│
-                    │                               │
-Session A ──MCP──▶  │  /mcp    → MCP Streamable HTTP│
-Session B ──MCP──▶  │  /mcp    → MCP Streamable HTTP│  ← shared state
-curl/SDK ──HTTP──▶  │  /api/*  → REST API           │
-Browser ──HTTP──▶   │  /*      → Dashboard (React)  │
-                    └─────────────────────────────┘
+Session A ──stdio→ broker-channel ──┐
+                                     ├──HTTP──▶ Express (port 8800)
+Session B ──stdio→ broker-channel ──┘          ├── /api/*  → REST API
+                                               ├── /*      → Dashboard
+Browser ──HTTP──────────────────────────────────┘
+
+Storage: SQLite (data/agent-rtc.db)
 ```
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design.
@@ -122,7 +120,7 @@ When any agent needs tool approval, all masters receive the request. Respond wit
 - **Client**: React 19 + Vite 8
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS v4 with Claude-inspired parchment theme
-- **Protocol**: MCP Streamable HTTP (@modelcontextprotocol/server v2)
+- **Protocol**: MCP over stdio (@modelcontextprotocol/sdk)
 - **Database**: SQLite (better-sqlite3) — persists across restarts, auto-migrating schema
 
 ## License

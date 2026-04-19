@@ -1,11 +1,6 @@
-import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
-import { createMcpExpressApp } from "@modelcontextprotocol/express";
-import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
-import { isInitializeRequest } from "@modelcontextprotocol/server";
-import { createAgentMcpServer } from "./lib/mcp-server.js";
 import {
   registerAgent,
   getAgents,
@@ -16,76 +11,13 @@ import {
   removeMaster,
   getStats,
   getMessageLog,
-  registerMcpServer,
-  unregisterMcpServer,
   sweepStaleAgents,
 } from "./lib/broker-state.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const port = parseInt(process.env.PORT ?? "8800", 10);
 
-// MCP session store
-const transports = new Map<string, NodeStreamableHTTPServerTransport>();
-
 const app = express();
-
-// --- MCP endpoint ---
-
-const mcpApp = createMcpExpressApp();
-
-mcpApp.post("/mcp", async (req, res) => {
-  const sessionId = req.headers["mcp-session-id"] as string | undefined;
-
-  if (sessionId && transports.has(sessionId)) {
-    await transports.get(sessionId)!.handleRequest(req, res, req.body);
-    return;
-  }
-
-  if (!sessionId && isInitializeRequest(req.body)) {
-    const agentId = `agent-${randomUUID().slice(0, 8)}`;
-    const displayName = (req.headers["x-agent-name"] as string) ?? "Agent";
-
-    const mcpServer = createAgentMcpServer(agentId, displayName);
-    registerMcpServer(agentId, mcpServer);
-
-    let newTransport: NodeStreamableHTTPServerTransport;
-    newTransport = new NodeStreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-      onsessioninitialized: (sid: string) => { transports.set(sid, newTransport); },
-    });
-
-    newTransport.onclose = () => {
-      if (newTransport.sessionId) transports.delete(newTransport.sessionId);
-      unregisterMcpServer(agentId);
-    };
-
-    await mcpServer.connect(newTransport);
-    await newTransport.handleRequest(req, res, req.body);
-    return;
-  }
-
-  res.status(400).json({ error: "Invalid request" });
-});
-
-mcpApp.get("/mcp", async (req, res) => {
-  const sessionId = req.headers["mcp-session-id"] as string | undefined;
-  if (sessionId && transports.has(sessionId)) {
-    await transports.get(sessionId)!.handleRequest(req, res);
-    return;
-  }
-  res.status(400).json({ error: "No session" });
-});
-
-mcpApp.delete("/mcp", async (req, res) => {
-  const sessionId = req.headers["mcp-session-id"] as string | undefined;
-  if (sessionId && transports.has(sessionId)) {
-    await transports.get(sessionId)!.close();
-    transports.delete(sessionId);
-  }
-  res.status(204).end();
-});
-
-app.use(mcpApp);
 
 // --- REST API ---
 
@@ -147,12 +79,10 @@ app.get("/{*path}", (_req, res) => {
 
 // --- Start ---
 
-// Sweep stale agents every 10s
 setInterval(sweepStaleAgents, 10_000);
 
 app.listen(port, () => {
   console.log(`agent-rtc listening on http://127.0.0.1:${port}`);
   console.log(`  Dashboard: http://127.0.0.1:${port}/`);
-  console.log(`  MCP:       http://127.0.0.1:${port}/mcp`);
   console.log(`  API:       http://127.0.0.1:${port}/api/*`);
 });

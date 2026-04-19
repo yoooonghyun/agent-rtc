@@ -1,4 +1,3 @@
-import type { McpServer } from "@modelcontextprotocol/server";
 import db from "./db.js";
 
 export interface Agent {
@@ -23,9 +22,6 @@ export interface MessageLog {
 
 const HEARTBEAT_TIMEOUT_MS = 30_000;
 const MAX_LOG_SIZE = 1000;
-
-// MCP server registry — runtime only, not persisted
-const mcpServers = new Map<string, McpServer>();
 
 // --- Prepared statements ---
 
@@ -77,32 +73,6 @@ export function hasAgent(agentId: string): boolean {
   return !!stmts.hasAgent.get(agentId);
 }
 
-// --- MCP server registry (in-memory only) ---
-
-export function registerMcpServer(agentId: string, server: McpServer): void {
-  mcpServers.set(agentId, server);
-}
-
-export function unregisterMcpServer(agentId: string): void {
-  mcpServers.delete(agentId);
-}
-
-async function notifyAgent(agentId: string, msg: QueuedMessage): Promise<void> {
-  const server = mcpServers.get(agentId);
-  if (!server) return;
-  try {
-    await server.server.notification({
-      method: "notifications/claude/channel",
-      params: {
-        content: msg.text,
-        meta: { from: msg.from, from_name: msg.fromDisplayName },
-      },
-    });
-  } catch {
-    // SSE stream may be closed
-  }
-}
-
 // --- Message operations ---
 
 export function sendMessage(from: string, to: string, text: string): boolean {
@@ -114,8 +84,6 @@ export function sendMessage(from: string, to: string, text: string): boolean {
   stmts.insertMessage.run(to, from, fromDisplayName, text, timestamp);
   stmts.insertLog.run(from, fromDisplayName, to, text, timestamp);
   stmts.trimLog.run(MAX_LOG_SIZE);
-
-  notifyAgent(to, { from, fromDisplayName, text, timestamp });
 
   return true;
 }
@@ -157,7 +125,6 @@ function unregisterAgent(agentId: string): void {
   stmts.deleteAgent.run(agentId);
   stmts.deleteMessages.run(agentId);
   stmts.removeMaster.run(agentId);
-  mcpServers.delete(agentId);
 }
 
 export function sweepStaleAgents(): string[] {
