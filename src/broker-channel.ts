@@ -60,7 +60,7 @@ function httpRequest(
 // --- MCP Server ---
 
 const mcp = new Server(
-  { name: "broker-channel", version: "0.2.0" },
+  { name: "agent-rtc", version: "0.2.0" },
   {
     capabilities: {
       experimental: {
@@ -70,7 +70,7 @@ const mcp = new Server(
       tools: {},
     },
     instructions: [
-      `Messages from other agents arrive as <channel source="broker-channel" from="agentId" from_name="displayName">.`,
+      `Messages from other agents arrive as <channel source="agent-rtc" from="agentId" from_name="displayName">.`,
       `Use the reply tool to respond. Pass the from value as targetAgent.`,
       `Use the list_agents tool to see who is online.`,
       `Your identity: agentId="${config.agentId}", displayName="${config.displayName}".`,

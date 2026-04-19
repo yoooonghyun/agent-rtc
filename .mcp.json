@@ -1,10 +1,12 @@
 {
   "mcpServers": {
     "agent-rtc": {
-      "type": "http",
-      "url": "http://127.0.0.1:8800/mcp",
-      "headers": {
-        "X-Agent-Name": "${AGENT_NAME:-Session A}"
+      "command": "node",
+      "args": ["dist/broker-channel.js"],
+      "env": {
+        "BROKER_URL": "http://127.0.0.1:8800/api",
+        "AGENT_ID": "${AGENT_ID:-session-a}",
+        "AGENT_DISPLAY_NAME": "${AGENT_NAME:-Session A}"
       }
     }
   }
