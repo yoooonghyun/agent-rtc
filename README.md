@@ -123,7 +123,7 @@ When any agent needs tool approval, all masters receive the request. Respond wit
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS v4 with Claude-inspired parchment theme
 - **Protocol**: MCP Streamable HTTP (@modelcontextprotocol/server v2)
-- **State**: In-memory (shared across MCP + REST + dashboard)
+- **Database**: SQLite (better-sqlite3) — persists across restarts, auto-migrating schema
 
 ## License
 

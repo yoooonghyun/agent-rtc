@@ -1,4 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/server";
+import db from "./db.js";
 
 export interface Agent {
   agentId: string;
@@ -20,36 +21,63 @@ export interface MessageLog {
   timestamp: number;
 }
 
-// --- In-memory state (singleton across Route Handlers) ---
-
-const agents = new Map<string, Agent>();
-const queues = new Map<string, QueuedMessage[]>();
-const masterPool = new Set<string>();
-const mcpServers = new Map<string, McpServer>();
-const lastHeartbeat = new Map<string, number>();
-const messageLog: MessageLog[] = [];
-const MAX_LOG_SIZE = 100;
 const HEARTBEAT_TIMEOUT_MS = 30_000;
+const MAX_LOG_SIZE = 1000;
+
+// MCP server registry — runtime only, not persisted
+const mcpServers = new Map<string, McpServer>();
+
+// --- Prepared statements ---
+
+const stmts = {
+  registerAgent: db.prepare(
+    `INSERT INTO agents (agentId, displayName, lastHeartbeat) VALUES (?, ?, ?)
+     ON CONFLICT(agentId) DO UPDATE SET displayName = excluded.displayName, lastHeartbeat = excluded.lastHeartbeat`
+  ),
+  getAgents: db.prepare(`SELECT agentId, displayName FROM agents`),
+  hasAgent: db.prepare(`SELECT 1 FROM agents WHERE agentId = ?`),
+  updateHeartbeat: db.prepare(`UPDATE agents SET lastHeartbeat = ? WHERE agentId = ?`),
+  deleteAgent: db.prepare(`DELETE FROM agents WHERE agentId = ?`),
+  getStaleAgents: db.prepare(`SELECT agentId FROM agents WHERE lastHeartbeat < ?`),
+
+  insertMessage: db.prepare(
+    `INSERT INTO messages (toAgentId, fromAgentId, fromDisplayName, text, timestamp) VALUES (?, ?, ?, ?, ?)`
+  ),
+  pollMessages: db.prepare(
+    `SELECT id, fromAgentId, fromDisplayName, text, timestamp FROM messages WHERE toAgentId = ?`
+  ),
+  deleteMessages: db.prepare(`DELETE FROM messages WHERE toAgentId = ?`),
+
+  insertLog: db.prepare(
+    `INSERT INTO message_log (fromAgentId, fromDisplayName, toAgentId, text, timestamp) VALUES (?, ?, ?, ?, ?)`
+  ),
+  getLog: db.prepare(`SELECT fromAgentId, fromDisplayName, toAgentId, text, timestamp FROM message_log ORDER BY id DESC LIMIT 20`),
+  trimLog: db.prepare(`DELETE FROM message_log WHERE id NOT IN (SELECT id FROM message_log ORDER BY id DESC LIMIT ?)`),
+
+  addMaster: db.prepare(`INSERT OR IGNORE INTO masters (agentId) VALUES (?)`),
+  removeMaster: db.prepare(`DELETE FROM masters WHERE agentId = ?`),
+  getMasters: db.prepare(`SELECT agentId FROM masters`),
+
+  countAgents: db.prepare(`SELECT COUNT(*) as count FROM agents`),
+  countMasters: db.prepare(`SELECT COUNT(*) as count FROM masters`),
+  countLog: db.prepare(`SELECT COUNT(*) as count FROM message_log`),
+};
 
 // --- Agent operations ---
 
 export function registerAgent(agentId: string, displayName: string): void {
-  agents.set(agentId, { agentId, displayName });
-  if (!queues.has(agentId)) {
-    queues.set(agentId, []);
-  }
-  lastHeartbeat.set(agentId, Date.now());
+  stmts.registerAgent.run(agentId, displayName, Date.now());
 }
 
 export function getAgents(): Agent[] {
-  return Array.from(agents.values());
+  return stmts.getAgents.all() as Agent[];
 }
 
 export function hasAgent(agentId: string): boolean {
-  return agents.has(agentId);
+  return !!stmts.hasAgent.get(agentId);
 }
 
-// --- MCP server registry ---
+// --- MCP server registry (in-memory only) ---
 
 export function registerMcpServer(agentId: string, server: McpServer): void {
   mcpServers.set(agentId, server);
@@ -61,104 +89,107 @@ export function unregisterMcpServer(agentId: string): void {
 
 async function notifyAgent(agentId: string, msg: QueuedMessage): Promise<void> {
   const server = mcpServers.get(agentId);
-  if (!server) {
-    console.log(`[notify] no MCP server for ${agentId}`);
-    return;
-  }
+  if (!server) return;
   try {
     await server.server.notification({
       method: "notifications/claude/channel",
       params: {
         content: msg.text,
-        meta: {
-          from: msg.from,
-          from_name: msg.fromDisplayName,
-        },
+        meta: { from: msg.from, from_name: msg.fromDisplayName },
       },
     });
-    console.log(`[notify] pushed to ${agentId}`);
-  } catch (err) {
-    console.log(`[notify] failed for ${agentId}:`, err);
+  } catch {
+    // SSE stream may be closed
   }
 }
 
 // --- Message operations ---
 
 export function sendMessage(from: string, to: string, text: string): boolean {
-  if (!agents.has(to)) return false;
-  const fromAgent = agents.get(from);
-  const msg: QueuedMessage = {
-    from,
-    fromDisplayName: fromAgent?.displayName ?? from,
-    text,
-    timestamp: Date.now(),
-  };
-  queues.get(to)!.push(msg);
+  if (!hasAgent(to)) return false;
+  const fromAgent = stmts.hasAgent.get(from) ? (stmts.getAgents.all() as Agent[]).find(a => a.agentId === from) : null;
+  const fromDisplayName = fromAgent?.displayName ?? from;
+  const timestamp = Date.now();
 
-  messageLog.push({ from, fromDisplayName: msg.fromDisplayName, to, text, timestamp: msg.timestamp });
-  if (messageLog.length > MAX_LOG_SIZE) {
-    messageLog.shift();
-  }
+  stmts.insertMessage.run(to, from, fromDisplayName, text, timestamp);
+  stmts.insertLog.run(from, fromDisplayName, to, text, timestamp);
+  stmts.trimLog.run(MAX_LOG_SIZE);
 
-  // Push via MCP SSE if agent is connected
-  notifyAgent(to, msg);
+  notifyAgent(to, { from, fromDisplayName, text, timestamp });
 
   return true;
 }
 
 export function pollMessages(agentId: string): QueuedMessage[] | null {
-  if (!queues.has(agentId)) return null;
-  lastHeartbeat.set(agentId, Date.now());
-  return queues.get(agentId)!.splice(0);
+  if (!hasAgent(agentId)) return null;
+  stmts.updateHeartbeat.run(Date.now(), agentId);
+
+  const rows = stmts.pollMessages.all(agentId) as Array<{
+    id: number; fromAgentId: string; fromDisplayName: string; text: string; timestamp: number;
+  }>;
+  if (rows.length > 0) {
+    stmts.deleteMessages.run(agentId);
+  }
+  return rows.map(r => ({
+    from: r.fromAgentId,
+    fromDisplayName: r.fromDisplayName,
+    text: r.text,
+    timestamp: r.timestamp,
+  }));
 }
 
 export function getMessageLog(): MessageLog[] {
-  return messageLog.slice(-20);
-}
-
-// --- Master operations ---
-
-export function addMaster(masterAgentId: string): void {
-  masterPool.add(masterAgentId);
-}
-
-export function removeMaster(masterAgentId: string): void {
-  masterPool.delete(masterAgentId);
-}
-
-export function getMasters(): string[] {
-  return Array.from(masterPool);
+  const rows = stmts.getLog.all() as Array<{
+    fromAgentId: string; fromDisplayName: string; toAgentId: string; text: string; timestamp: number;
+  }>;
+  return rows.map(r => ({
+    from: r.fromAgentId,
+    fromDisplayName: r.fromDisplayName,
+    to: r.toAgentId,
+    text: r.text,
+    timestamp: r.timestamp,
+  }));
 }
 
 // --- Heartbeat sweep ---
 
 function unregisterAgent(agentId: string): void {
-  agents.delete(agentId);
-  queues.delete(agentId);
-  lastHeartbeat.delete(agentId);
+  stmts.deleteAgent.run(agentId);
+  stmts.deleteMessages.run(agentId);
+  stmts.removeMaster.run(agentId);
   mcpServers.delete(agentId);
-  masterPool.delete(agentId);
 }
 
 export function sweepStaleAgents(): string[] {
-  const now = Date.now();
-  const removed: string[] = [];
-  for (const [agentId, ts] of lastHeartbeat) {
-    if (now - ts > HEARTBEAT_TIMEOUT_MS) {
-      console.log(`[sweep] removing stale agent: ${agentId}`);
-      unregisterAgent(agentId);
-      removed.push(agentId);
-    }
+  const cutoff = Date.now() - HEARTBEAT_TIMEOUT_MS;
+  const stale = stmts.getStaleAgents.all(cutoff) as Array<{ agentId: string }>;
+  for (const { agentId } of stale) {
+    console.log(`[sweep] removing stale agent: ${agentId}`);
+    unregisterAgent(agentId);
   }
-  return removed;
+  return stale.map(s => s.agentId);
+}
+
+// --- Master operations ---
+
+export function addMaster(masterAgentId: string): void {
+  stmts.addMaster.run(masterAgentId);
+}
+
+export function removeMaster(masterAgentId: string): void {
+  stmts.removeMaster.run(masterAgentId);
+}
+
+export function getMasters(): string[] {
+  return (stmts.getMasters.all() as Array<{ agentId: string }>).map(r => r.agentId);
 }
 
 // --- Stats ---
 
 export function getStats() {
   return {
-    agentCount: agents.size,
-    masterCount: masterPool.size,
-    totalMessages: messageLog.length,
+    agentCount: (stmts.countAgents.get() as { count: number }).count,
+    masterCount: (stmts.countMasters.get() as { count: number }).count,
+    totalMessages: (stmts.countLog.get() as { count: number }).count,
   };
 }
