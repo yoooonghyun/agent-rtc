@@ -29,7 +29,6 @@ function readBody(req: IncomingMessage): Promise<unknown> {
 async function handleMcp(req: IncomingMessage, res: ServerResponse) {
   const method = req.method ?? "";
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
-  const parsed = parse(req.url ?? "", true);
 
   if (method === "POST") {
     const body = await readBody(req);
@@ -42,8 +41,8 @@ async function handleMcp(req: IncomingMessage, res: ServerResponse) {
 
     // New session
     if (!sessionId && isInitializeRequest(body)) {
-      const agentId = (parsed.query.agentId as string) ?? `agent-${randomUUID().slice(0, 8)}`;
-      const displayName = (parsed.query.displayName as string) ?? "Agent";
+      const agentId = `agent-${randomUUID().slice(0, 8)}`;
+      const displayName = (req.headers["x-agent-name"] as string) ?? "Agent";
 
       const server = createAgentMcpServer(agentId, displayName);
       const transport = new NodeStreamableHTTPServerTransport({

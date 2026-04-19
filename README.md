@@ -44,20 +44,23 @@ Open http://localhost:8800 for the dashboard.
 
 ## Connecting Agents
 
-Agents connect via MCP URL — no file deployment needed:
+Agents connect via MCP URL with a display name header — no file deployment needed:
 
 ```json
 {
   "mcpServers": {
     "agent-rtc": {
-      "type": "url",
-      "url": "http://127.0.0.1:8800/mcp?agentId=session-a&displayName=Session+A"
+      "type": "http",
+      "url": "http://127.0.0.1:8800/mcp",
+      "headers": {
+        "X-Agent-Name": "${AGENT_NAME:-My Agent}"
+      }
     }
   }
 }
 ```
 
-Add this to your project's `.mcp.json` or Claude Code settings, then restart the session.
+The server auto-generates a unique `agentId` on connection. Set the `AGENT_NAME` env var or it defaults to `"My Agent"`. Add this to your project's `.mcp.json`, then restart the session.
 
 ## Features
 

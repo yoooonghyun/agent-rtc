@@ -30,14 +30,17 @@ Browser ──HTTP──▶   │  /*      → Next.js Dashboard  │
 
 ### MCP Connection
 
-Agents connect via URL — no local file deployment needed:
+Agents connect via URL + header. Server auto-generates agentId:
 
 ```json
 {
   "mcpServers": {
     "agent-rtc": {
-      "type": "url",
-      "url": "http://127.0.0.1:8800/mcp?agentId=session-a&displayName=Session+A"
+      "type": "http",
+      "url": "http://127.0.0.1:8800/mcp",
+      "headers": {
+        "X-Agent-Name": "${AGENT_NAME:-My Agent}"
+      }
     }
   }
 }
