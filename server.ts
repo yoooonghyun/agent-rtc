@@ -18,6 +18,7 @@ import {
   getMessageLog,
   registerMcpServer,
   unregisterMcpServer,
+  sweepStaleAgents,
 } from "./lib/broker-state.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -145,6 +146,9 @@ app.get("/{*path}", (_req, res) => {
 });
 
 // --- Start ---
+
+// Sweep stale agents every 10s
+setInterval(sweepStaleAgents, 10_000);
 
 app.listen(port, () => {
   console.log(`agent-rtc listening on http://127.0.0.1:${port}`);

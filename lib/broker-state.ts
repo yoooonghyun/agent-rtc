@@ -26,8 +26,10 @@ const agents = new Map<string, Agent>();
 const queues = new Map<string, QueuedMessage[]>();
 const masterPool = new Set<string>();
 const mcpServers = new Map<string, McpServer>();
+const lastHeartbeat = new Map<string, number>();
 const messageLog: MessageLog[] = [];
 const MAX_LOG_SIZE = 100;
+const HEARTBEAT_TIMEOUT_MS = 30_000;
 
 // --- Agent operations ---
 
@@ -36,6 +38,7 @@ export function registerAgent(agentId: string, displayName: string): void {
   if (!queues.has(agentId)) {
     queues.set(agentId, []);
   }
+  lastHeartbeat.set(agentId, Date.now());
 }
 
 export function getAgents(): Agent[] {
@@ -105,6 +108,7 @@ export function sendMessage(from: string, to: string, text: string): boolean {
 
 export function pollMessages(agentId: string): QueuedMessage[] | null {
   if (!queues.has(agentId)) return null;
+  lastHeartbeat.set(agentId, Date.now());
   return queues.get(agentId)!.splice(0);
 }
 
@@ -124,6 +128,29 @@ export function removeMaster(masterAgentId: string): void {
 
 export function getMasters(): string[] {
   return Array.from(masterPool);
+}
+
+// --- Heartbeat sweep ---
+
+function unregisterAgent(agentId: string): void {
+  agents.delete(agentId);
+  queues.delete(agentId);
+  lastHeartbeat.delete(agentId);
+  mcpServers.delete(agentId);
+  masterPool.delete(agentId);
+}
+
+export function sweepStaleAgents(): string[] {
+  const now = Date.now();
+  const removed: string[] = [];
+  for (const [agentId, ts] of lastHeartbeat) {
+    if (now - ts > HEARTBEAT_TIMEOUT_MS) {
+      console.log(`[sweep] removing stale agent: ${agentId}`);
+      unregisterAgent(agentId);
+      removed.push(agentId);
+    }
+  }
+  return removed;
 }
 
 // --- Stats ---
