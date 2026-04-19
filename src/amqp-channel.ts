@@ -54,15 +54,18 @@ const ch = await conn.createChannel();
 await ch.assertExchange(EXCHANGE, "topic", { durable: true });
 
 // Declare agent queue (exclusive + autoDelete = removed on disconnect)
+// Store displayName in queue arguments for discovery
 const agentQueue = `agent.${AGENT_ID}`;
-await ch.assertQueue(agentQueue, { exclusive: true, autoDelete: true });
+await ch.assertQueue(agentQueue, {
+  exclusive: true,
+  autoDelete: true,
+  arguments: { "x-agent-name": AGENT_NAME },
+});
 await ch.bindQueue(agentQueue, EXCHANGE, `agent.${AGENT_ID}`);
 
-// Declare permission queue (for receiving permission verdicts)
+// Permission queue — created lazily when add_master is called
 const permQueue = `perm.${AGENT_ID}`;
-await ch.assertQueue(permQueue, { exclusive: true, autoDelete: true });
-// Bind to permission fan-out — only if this agent becomes a master
-// (binding happens in add_master tool)
+let permQueueCreated = false;
 
 process.stderr.write(`[amqp] connected as ${AGENT_ID} (${AGENT_NAME})\n`);
 
@@ -155,11 +158,14 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
 
   if (req.params.name === "list_agents") {
     try {
-      const res = await mgmtRequest("GET", "/api/queues/%2F?columns=name");
-      const queues = JSON.parse(res.body) as Array<{ name: string }>;
+      const res = await mgmtRequest("GET", "/api/queues/%2F?columns=name,arguments");
+      const queues = JSON.parse(res.body) as Array<{ name: string; arguments: Record<string, unknown> }>;
       const agents = queues
         .filter((q) => q.name.startsWith("agent."))
-        .map((q) => ({ agentId: q.name.replace("agent.", ""), displayName: q.name }));
+        .map((q) => ({
+          agentId: q.name.replace("agent.", ""),
+          displayName: (q.arguments?.["x-agent-name"] as string) ?? q.name,
+        }));
       return { content: [{ type: "text" as const, text: JSON.stringify(agents) }] };
     } catch (err) {
       return { content: [{ type: "text" as const, text: `failed: ${err}` }] };
@@ -169,8 +175,28 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   if (req.params.name === "add_master") {
     const { masterAgentId } = req.params.arguments as { masterAgentId: string };
     try {
-      // Bind the master's permission queue to the permission routing key
       const masterPermQueue = `perm.${masterAgentId}`;
+      // Create perm queue if adding self as master
+      if (masterAgentId === AGENT_ID && !permQueueCreated) {
+        await ch.assertQueue(permQueue, { exclusive: true, autoDelete: true });
+        ch.consume(permQueue, (msg) => {
+          if (!msg) return;
+          ch.ack(msg);
+          try {
+            const data = JSON.parse(msg.content.toString()) as {
+              from: string; fromDisplayName: string; text: string;
+            };
+            mcp.notification({
+              method: "notifications/claude/channel",
+              params: {
+                content: data.text,
+                meta: { from: data.from, from_name: data.fromDisplayName },
+              },
+            });
+          } catch { /* malformed */ }
+        });
+        permQueueCreated = true;
+      }
       await ch.bindQueue(masterPermQueue, EXCHANGE, "permission.*");
       return { content: [{ type: "text" as const, text: `master added: ${masterAgentId}` }] };
     } catch (err) {
@@ -268,25 +294,7 @@ ch.consume(agentQueue, (msg) => {
   }
 });
 
-// Consume permission messages (if this agent is a master)
-ch.consume(permQueue, (msg) => {
-  if (!msg) return;
-  ch.ack(msg);
-  try {
-    const data = JSON.parse(msg.content.toString()) as {
-      from: string; fromDisplayName: string; text: string;
-    };
-    mcp.notification({
-      method: "notifications/claude/channel",
-      params: {
-        content: data.text,
-        meta: { from: data.from, from_name: data.fromDisplayName },
-      },
-    });
-  } catch {
-    // malformed message, skip
-  }
-});
+// Permission queue consume is set up lazily in add_master tool
 
 // --- Cleanup on exit ---
 
