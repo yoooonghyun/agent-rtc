@@ -4,7 +4,7 @@ Real-time communication broker for inter-agent messaging, permission relay, and 
 
 ## What it does
 
-- **Inter-agent messaging**: Multiple Claude Code sessions communicate via a central broker using agentId-based routing
+- **Inter-agent messaging**: Multiple Claude Code sessions communicate via a central broker — messages are pushed instantly via MCP SSE
 - **MCP HTTP endpoint**: Agents connect via URL — no local file deployment needed
 - **Web dashboard**: Monitor agents, manage master pool, view message activity
 - **Permission relay**: When an agent needs tool approval, the request fans out to all registered master agents — first verdict wins

@@ -28,6 +28,10 @@ Browser ──HTTP──▶   │  /*      → Next.js Dashboard  │
 | `app/layout.tsx` | Next.js root layout |
 | `app/page.tsx` | Dashboard page |
 
+### Message Delivery
+
+Messages are pushed instantly via MCP SSE. When `sendMessage()` is called, the broker looks up the target agent's MCP server in the registry and pushes a `notifications/claude/channel` notification through the SSE stream. No polling needed for MCP-connected agents. REST `/api/poll` remains as fallback for non-MCP clients.
+
 ### MCP Connection
 
 Agents connect via URL + header. Server auto-generates agentId:

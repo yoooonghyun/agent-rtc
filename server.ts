@@ -16,6 +16,8 @@ import {
   removeMaster,
   getStats,
   getMessageLog,
+  registerMcpServer,
+  unregisterMcpServer,
 } from "./lib/broker-state.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -43,6 +45,8 @@ mcpApp.post("/mcp", async (req, res) => {
     const displayName = (req.headers["x-agent-name"] as string) ?? "Agent";
 
     const mcpServer = createAgentMcpServer(agentId, displayName);
+    registerMcpServer(agentId, mcpServer);
+
     let newTransport: NodeStreamableHTTPServerTransport;
     newTransport = new NodeStreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
@@ -51,6 +55,7 @@ mcpApp.post("/mcp", async (req, res) => {
 
     newTransport.onclose = () => {
       if (newTransport.sessionId) transports.delete(newTransport.sessionId);
+      unregisterMcpServer(agentId);
     };
 
     await mcpServer.connect(newTransport);

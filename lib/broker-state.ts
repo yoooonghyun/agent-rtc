@@ -1,3 +1,5 @@
+import type { McpServer } from "@modelcontextprotocol/server";
+
 export interface Agent {
   agentId: string;
   displayName: string;
@@ -23,6 +25,7 @@ export interface MessageLog {
 const agents = new Map<string, Agent>();
 const queues = new Map<string, QueuedMessage[]>();
 const masterPool = new Set<string>();
+const mcpServers = new Map<string, McpServer>();
 const messageLog: MessageLog[] = [];
 const MAX_LOG_SIZE = 100;
 
@@ -43,6 +46,39 @@ export function hasAgent(agentId: string): boolean {
   return agents.has(agentId);
 }
 
+// --- MCP server registry ---
+
+export function registerMcpServer(agentId: string, server: McpServer): void {
+  mcpServers.set(agentId, server);
+}
+
+export function unregisterMcpServer(agentId: string): void {
+  mcpServers.delete(agentId);
+}
+
+async function notifyAgent(agentId: string, msg: QueuedMessage): Promise<void> {
+  const server = mcpServers.get(agentId);
+  if (!server) {
+    console.log(`[notify] no MCP server for ${agentId}`);
+    return;
+  }
+  try {
+    await server.server.notification({
+      method: "notifications/claude/channel",
+      params: {
+        content: msg.text,
+        meta: {
+          from: msg.from,
+          from_name: msg.fromDisplayName,
+        },
+      },
+    });
+    console.log(`[notify] pushed to ${agentId}`);
+  } catch (err) {
+    console.log(`[notify] failed for ${agentId}:`, err);
+  }
+}
+
 // --- Message operations ---
 
 export function sendMessage(from: string, to: string, text: string): boolean {
@@ -60,6 +96,9 @@ export function sendMessage(from: string, to: string, text: string): boolean {
   if (messageLog.length > MAX_LOG_SIZE) {
     messageLog.shift();
   }
+
+  // Push via MCP SSE if agent is connected
+  notifyAgent(to, msg);
 
   return true;
 }
