@@ -1,4 +1,4 @@
-# Agent Bridge Channel — Design
+# Agent RTC — Architecture
 
 ## v1: Direct Port-to-Port (bridge-channel)
 
@@ -94,15 +94,10 @@ Agent B ──▶ Broker ──▶ [Master A, Master C]  (simultaneous)
 ### Architecture
 
 ```
-TaskCompleted hook
+TaskCompleted (prompt hook)
     │
-    ▼
-scripts/on-task-completed.sh
-    │
-    ▼ (CLAUDECODE= claude -p --agent adaptive-feedback)
-    │
-Adaptive Feedback Agent
-    ├── Read session transcript
+    ▼ (in-session, same process)
+Claude spawns adaptive-feedback subagent
     ├── Scan tooling: CLAUDE.md, agents/, skills/, settings.json
     ├── Detect: repetitive patterns, user feedback, rule conflicts
     └── Write changes → CLAUDE.md, agents, skills, hooks
@@ -111,13 +106,10 @@ Adaptive Feedback Agent
 ### Components
 
 - **Agent**: `.claude/agents/adaptive-feedback.md` — sonnet model, restricted tools
-- **Hook**: `scripts/on-task-completed.sh` — parses JSON stdin, invokes agent
-- **Settings**: `.claude/settings.json` — TaskCompleted hook registration
+- **Hook**: `prompt` type in `.claude/settings.json` — triggers in-session subagent
 
 ### Key Decisions
 
+- **In-session execution**: `prompt` hook runs within the same Claude session — no external process, no race conditions
 - **Direct writes over proposals**: Agent writes changes directly; user reviews via `git diff`
 - **Restricted tool set**: No source code modification — only tooling files
-- **Silent failures**: Hook errors don't block task completion (`|| true`)
-- **In-session execution**: Uses `prompt` type hook — no shell scripts, no external processes, no race conditions
-- **Prompt delegates to subagent**: The hook prompt instructs Claude to spawn adaptive-feedback as a subagent

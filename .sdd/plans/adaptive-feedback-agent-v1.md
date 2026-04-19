@@ -38,7 +38,7 @@ Create an adaptive feedback agent definition and a `prompt` type TaskCompleted h
 
 - [x] Update spec (shell script → prompt hook)
 - [x] Update plan
-- [x] Update design.md
+- [x] Update ARCHITECTURE.md
 
 ---
 

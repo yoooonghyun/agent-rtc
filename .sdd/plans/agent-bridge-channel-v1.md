@@ -46,7 +46,7 @@ Implement a custom Channel MCP server for bidirectional HTTP communication betwe
 ### Phase 4 — Docs
 
 - [x] Update this plan with deviations
-- [x] Update `.sdd/design.md`
+- [x] Update `.sdd/ARCHITECTURE.md`
 
 ---
 

@@ -46,7 +46,7 @@ Convert the broker's per-agent master to a global master pool and change broker-
 ### Phase 4 — Docs
 
 - [x] Update plan
-- [x] Update design.md
+- [x] Update ARCHITECTURE.md
 
 ---
 

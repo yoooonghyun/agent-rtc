@@ -48,7 +48,7 @@ Implement a single HTTP broker server and a broker-connected channel MCP server.
 ### Phase 4 — Docs
 
 - [x] Update this plan with deviations
-- [x] Update `.sdd/design.md`
+- [x] Update `.sdd/ARCHITECTURE.md`
 
 ---
 

@@ -1,24 +1,21 @@
-# Agent Bridge Channel
+# Agent RTC
 
-A custom Channel MCP server PoC for bidirectional communication between Claude Code sessions.
+Real-time communication broker for inter-agent messaging, permission relay, and adaptive feedback.
 
 ## Tech Stack
 
 - Runtime: Node.js (v25+)
 - Language: TypeScript
 - Protocol: MCP (Model Context Protocol) over stdio
-- Transport: HTTP (localhost) for inter-session messaging
+- Transport: HTTP (localhost) for inter-agent messaging
 
-## Architecture
+## Project Structure
 
-```
-Session A ──┐                         ┌── Session B
-(broker-    ├──▶ Broker (port 8800) ◀─┤   (broker-
- channel)   │    register/send/poll   │    channel)
-Session C ──┘                         └── Session D
-```
-
-Each session runs its own broker-channel MCP server, which communicates with a central broker via HTTP.
+- `src/broker.ts` — Central broker server (register, send, poll, masters)
+- `src/broker-channel.ts` — MCP Channel server connecting Claude Code to the broker
+- `src/bridge-channel.ts` — v1 direct port-to-port channel (legacy)
+- `src/types.ts` — Shared type definitions
+- `ARCHITECTURE.md` — Detailed architecture and design decisions
 
 ## Development Guide
 
@@ -26,6 +23,7 @@ Each session runs its own broker-channel MCP server, which communicates with a c
 - Write specs and plans in `.sdd/` before writing code.
 - Write tests before implementation.
 - Use `--dangerously-load-development-channels` flag to test channels in development.
+- Build with `npm run build`, test with `npm test`.
 
 ## Learned Rules
 
