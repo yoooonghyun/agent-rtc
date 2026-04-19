@@ -8,45 +8,45 @@ Session A (port 8001)                    Session B (port 8002)
   Claude ←stdio→ bridge MCP ←HTTP POST── bridge MCP ←stdio→ Claude
 ```
 
-각 세션이 독립 HTTP 서버를 실행하고, 상대 포트로 직접 메시지 전송.
-한계: agent마다 포트 할당 필요, 상대 포트를 알아야 함.
+Each session runs an independent HTTP server and sends messages directly to the other's port.
+Limitation: requires port allocation per agent and knowledge of the other's port.
 
 ## v2: Central Broker (broker + broker-channel)
 
 ```
 Session A ──┐                         ┌── Session B
-(broker-    ├──▶ Broker (port 8000) ◀─┤   (broker-
+(broker-    ├──▶ Broker (port 8800) ◀─┤   (broker-
  channel)   │    register/send/poll   │    channel)
 Session C ──┘                         └── Session D
 ```
 
 ### Components
 
-1. **Broker** (`src/broker.ts`): 단일 HTTP 서버
-   - `POST /register` — agent 등록 (agentId + displayName)
-   - `POST /send` — 메시지 전송 (from, to, text)
-   - `GET /poll?agentId=<id>` — 수신 메시지 조회 및 소비
-   - `GET /agents` — 등록된 agent 목록
-   - `GET /health` — 헬스체크
+1. **Broker** (`src/broker.ts`): Single HTTP server
+   - `POST /register` — Register agent (agentId + displayName)
+   - `POST /send` — Send message (from, to, text)
+   - `GET /poll?agentId=<id>` — Retrieve and consume pending messages
+   - `GET /agents` — List registered agents
+   - `GET /health` — Health check
 
-2. **Broker Channel** (`src/broker-channel.ts`): MCP Channel 서버
-   - 브로커에 자동 등록
-   - polling으로 수신 메시지를 MCP notification으로 push
-   - `reply` tool: agentId로 메시지 전송
-   - `list_agents` tool: 등록된 agent 목록 조회
+2. **Broker Channel** (`src/broker-channel.ts`): MCP Channel server
+   - Auto-registers with broker on startup
+   - Polls broker for incoming messages, pushes as MCP notifications
+   - `reply` tool: Send message by agentId
+   - `list_agents` tool: List registered agents
 
 ### Message Flow
 
-1. Agent A의 Claude가 `reply(targetAgent: "agent-b", text: "hello")` 호출
-2. broker-channel이 `POST /send { from: "agent-a", to: "agent-b", text: "hello" }` 전송
-3. Agent B의 broker-channel이 `GET /poll?agentId=agent-b`로 메시지 수신
-4. MCP notification → Claude에 `<channel from="agent-a" from_name="리서처">hello</channel>` 도착
+1. Agent A's Claude calls `reply(targetAgent: "agent-b", text: "hello")`
+2. broker-channel sends `POST /send { from: "agent-a", to: "agent-b", text: "hello" }`
+3. Agent B's broker-channel receives via `GET /poll?agentId=agent-b`
+4. MCP notification → Claude receives `<channel from="agent-a" from_name="Researcher">hello</channel>`
 
 ### Key Decisions
 
-- **Polling over WebSocket**: PoC 단순성 우선. 1초 간격 polling.
-- **메모리 큐**: persistence 없음. 브로커 재시작 시 메시지 유실.
-- **agentId + displayName**: 라우팅은 agentId, 사용자 표시는 displayName.
+- **Polling over WebSocket**: Prioritizing PoC simplicity. 1-second polling interval.
+- **In-memory queue**: No persistence. Messages lost on broker restart.
+- **agentId + displayName**: Routing uses agentId, display uses displayName.
 
 ## v3: Permission Relay with Global Master Pool
 
@@ -56,35 +56,35 @@ Session C ──┘                         └── Session D
 Master A ←──┐
 Master C ←──┤  fan-out
             │
-Agent B ──▶ Broker ──▶ [Master A, Master C]  (동시 전송)
-  permission        첫 verdict wins
+Agent B ──▶ Broker ──▶ [Master A, Master C]  (simultaneous)
+  permission        first verdict wins
   request
 ```
 
 ### Broker API
 
-- `POST /masters/add` — master pool에 추가 (`{ masterAgentId }`)
-- `POST /masters/remove` — master pool에서 제거 (`{ masterAgentId }`)
-- `GET /masters` — master pool 목록 반환
+- `POST /masters/add` — Add to master pool (`{ masterAgentId }`)
+- `POST /masters/remove` — Remove from master pool (`{ masterAgentId }`)
+- `GET /masters` — List master pool
 
 ### broker-channel Tools
 
-- `add_master(masterAgentId)` — global master 추가
-- `remove_master(masterAgentId)` — global master 제거
-- `list_masters()` — master pool 조회
+- `add_master(masterAgentId)` — Add global master
+- `remove_master(masterAgentId)` — Remove global master
+- `list_masters()` — Query master pool
 
 ### Permission Relay Flow
 
-1. Agent B에서 tool 사용 시 permission 필요
+1. Agent B requires permission for a tool call
 2. Claude Code → broker-channel: `permission_request` notification
-3. broker-channel이 `GET /masters`로 master pool 조회
-4. 모든 master에게 `POST /send`로 fan-out 전송
-5. 아무 master가 `yes/no <id>` verdict 전송
-6. Agent B의 broker-channel이 poll로 verdict 수신
-7. `notifications/claude/channel/permission` 발행 → Claude Code가 적용
+3. broker-channel fetches master pool via `GET /masters`
+4. Fan-out `POST /send` to all masters
+5. Any master sends `yes/no <id>` verdict
+6. Agent B's broker-channel receives verdict via poll
+7. Emits `notifications/claude/channel/permission` → Claude Code applies it
 
 ### Key Decisions
 
-- **Global over per-agent master**: 모든 agent의 permission이 같은 master pool에 전달
-- **Fan-out with `Promise.allSettled`**: 일부 master가 미등록이어도 나머지에 전달
-- **First verdict wins**: Claude Code 기본 동작 활용, 추가 구현 불필요
+- **Global over per-agent master**: All agents' permissions go to the same master pool
+- **Fan-out with `Promise.allSettled`**: Delivery continues even if some masters are unreachable
+- **First verdict wins**: Leverages Claude Code's built-in behavior, no extra implementation needed

@@ -9,7 +9,7 @@
 
 ## Summary
 
-Claude Code 세션 간 양방향 HTTP 통신을 위한 커스텀 Channel MCP 서버를 Node.js + TypeScript로 구현한다. 각 세션이 자체 HTTP 서버를 실행하고, MCP stdio를 통해 Claude Code와 연결되며, 상대 세션의 포트로 HTTP POST를 보내 메시지를 교환한다.
+Implement a custom Channel MCP server for bidirectional HTTP communication between Claude Code sessions using Node.js + TypeScript. Each session runs its own HTTP server and connects to Claude Code via MCP stdio, exchanging messages by posting to the other session's port.
 
 ## Technical Context
 
@@ -32,25 +32,25 @@ Claude Code 세션 간 양방향 HTTP 통신을 위한 커스텀 Channel MCP 서
 
 ### Phase 2 — Testing
 
-- [x] Write test: HTTP POST → MCP notification 발행 확인
-- [x] Write test: reply tool 호출 → 대상 포트로 HTTP POST 전송 확인
-- [x] Write test: 잘못된 요청(빈 body, 잘못된 method) 처리 확인
-- [x] Write test: 대상 서버 미실행 시 reply 에러 처리 확인
+- [x] Write test: HTTP POST → MCP notification emission
+- [x] Write test: reply tool call → HTTP POST to target port
+- [x] Write test: invalid requests (empty body, wrong method)
+- [x] Write test: reply error handling when target server is down
 
 ### Phase 3 — Implementation
 
-- [x] `src/bridge-channel.ts` 구현: MCP Server + HTTP listener + reply tool
-- [x] `.mcp.json` 설정 파일 작성
+- [x] `src/bridge-channel.ts`: MCP Server + HTTP listener + reply tool
+- [x] `.mcp.json` configuration
 - [x] All tests pass (5/5)
 
 ### Phase 4 — Docs
 
-- [x] Update this plan with any deviations
-- [x] Update `.sdd/design.md` if new patterns were introduced
+- [x] Update this plan with deviations
+- [x] Update `.sdd/design.md`
 
 ---
 
 ## Deviations & Notes
 
-- **2026-04-19**: `BridgeMessage` 타입은 실제로 HTTP 레벨에서 header(`x-sender-port`) + body로 분리되어 전달됨. 별도 JSON wrapping 없이 plain text body + header 방식 채택.
-- **2026-04-19**: `/reply` HTTP 엔드포인트 추가 — MCP reply tool 외에 standalone HTTP 테스트를 위한 프록시 경로.
+- **2026-04-19**: `BridgeMessage` type is split across HTTP header (`x-sender-port`) + body at the transport level, rather than JSON wrapping. Adopted plain text body + header approach.
+- **2026-04-19**: Added `/reply` HTTP endpoint as a proxy for standalone HTTP testing without MCP.

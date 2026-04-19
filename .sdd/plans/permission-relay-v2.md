@@ -9,7 +9,7 @@
 
 ## Summary
 
-브로커의 per-agent master를 global master pool로 전환하고, broker-channel의 permission relay를 fan-out 방식으로 변경한다.
+Convert the broker's per-agent master to a global master pool and change broker-channel's permission relay to fan-out to all registered masters.
 
 ## Technical Context
 
@@ -17,7 +17,7 @@
 |-------------------|-------------------------------------------|
 | Language          | TypeScript (Node.js v25+)                 |
 | Key dependencies  | `@modelcontextprotocol/sdk`, `zod`        |
-| Files to modify   | `src/broker.ts`, `src/broker-channel.ts`, `src/types.ts`, `src/broker.test.ts` |
+| Files modified    | `src/broker.ts`, `src/broker-channel.ts`, `src/broker.test.ts` |
 
 ---
 
@@ -25,22 +25,22 @@
 
 ### Phase 1 — Interface
 
-- [x] types.ts: 변경 불필요
+- [x] types.ts: No changes needed
 
 ### Phase 2 — Testing
 
-- [x] broker.test.ts: `POST /masters/add` 테스트
-- [x] broker.test.ts: `GET /masters` 목록 반환 테스트
-- [x] broker.test.ts: `POST /masters/remove` 테스트
-- [x] broker.test.ts: 중복 add → idempotent 테스트
-- [x] broker.test.ts: 존재하지 않는 master remove → 200 테스트
+- [x] broker.test.ts: `POST /masters/add`
+- [x] broker.test.ts: `GET /masters` list
+- [x] broker.test.ts: `POST /masters/remove`
+- [x] broker.test.ts: duplicate add → idempotent
+- [x] broker.test.ts: remove non-existent → 200
 
 ### Phase 3 — Implementation
 
-- [x] broker.ts: per-agent master API 제거 → global master pool API 추가
-- [x] broker-channel.ts: `set_master`, `get_master` 제거 → `add_master`, `remove_master`, `list_masters` 추가
-- [x] broker-channel.ts: permission relay를 `Promise.allSettled` fan-out으로 변경
-- [x] broker-channel.ts: `fetchMaster()` → `fetchMasters()` 변경
+- [x] broker.ts: Replace per-agent master API with global master pool API
+- [x] broker-channel.ts: Replace `set_master`, `get_master` with `add_master`, `remove_master`, `list_masters`
+- [x] broker-channel.ts: Permission relay changed to `Promise.allSettled` fan-out
+- [x] broker-channel.ts: `fetchMaster()` → `fetchMasters()`
 - [x] All tests pass (13/13)
 
 ### Phase 4 — Docs
@@ -52,4 +52,4 @@
 
 ## Deviations & Notes
 
-- **2026-04-19**: 스펙대로 구현, 특이 사항 없음.
+- **2026-04-19**: Implemented per spec, no deviations.
