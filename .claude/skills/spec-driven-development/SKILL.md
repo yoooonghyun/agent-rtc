@@ -26,4 +26,4 @@ Missing templates should be downloaded from the agent-skills repository.
 
 5. **Implement**: Code solutions that satisfy tests and specifications exclusively, avoiding scope creep.
 
-6. **Documentation**: Update plans with deviations, create or maintain `ARCHITECTURE.md` as architectural reference, and reflect new patterns discovered.
+6. **Documentation**: Update plans with deviations, create or maintain `ARCHITECTURE.md` as architectural reference, update `README.md` if user-facing features changed, and reflect new patterns discovered.

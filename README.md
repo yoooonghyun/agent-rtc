@@ -5,19 +5,24 @@ Real-time communication broker for inter-agent messaging, permission relay, and 
 ## What it does
 
 - **Inter-agent messaging**: Multiple Claude Code sessions communicate via a central broker using agentId-based routing
+- **MCP HTTP endpoint**: Agents connect via URL — no local file deployment needed
+- **Web dashboard**: Monitor agents, manage master pool, view message activity
 - **Permission relay**: When an agent needs tool approval, the request fans out to all registered master agents — first verdict wins
-- **Adaptive feedback**: A TaskCompleted hook triggers an in-session agent that detects repetitive patterns, captures user feedback, and resolves rule conflicts across project tooling
+- **Adaptive feedback**: A TaskCompleted hook triggers an in-session agent that improves project tooling
 
 ## Architecture
 
 ```
-Session A ──┐                         ┌── Session B
-(broker-    ├──▶ Broker (HTTP) ◀──────┤   (broker-
- channel)   │   register/send/poll    │    channel)
-Session C ──┘                         └── Session D
+                    ┌─────────────────────────────┐
+                    │   Next.js Custom Server       │
+                    │   (single port)               │
+                    │                               │
+Session A ──MCP──▶  │  /mcp    → MCP Streamable HTTP│
+Session B ──MCP──▶  │  /mcp    → MCP Streamable HTTP│  ← shared state
+curl/SDK ──HTTP──▶  │  /api/*  → REST API           │
+Browser ──HTTP──▶   │  /*      → Dashboard (React)  │
+                    └─────────────────────────────┘
 ```
-
-Each session runs a `broker-channel` MCP server that auto-registers with the central broker and polls for messages. Messages arrive as `<channel>` events in the Claude Code session.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design.
 
@@ -27,32 +32,54 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design.
 # Install
 npm install
 
-# Build
+# Development (dashboard + API + MCP on port 8800)
+npm run dev
+
+# Production
 npm run build
+npm start
+```
 
-# Start the broker
-BROKER_PORT=8800 node dist/broker.js
+Open http://localhost:8800 for the dashboard.
 
-# Session A
-BROKER_URL=http://127.0.0.1:8800 AGENT_ID=session-a AGENT_DISPLAY_NAME="Session A" \
-  claude --dangerously-skip-permissions --dangerously-load-development-channels server:broker-channel
+## Connecting Agents
 
-# Session B (separate terminal)
-BROKER_URL=http://127.0.0.1:8800 AGENT_ID=session-b AGENT_DISPLAY_NAME="Session B" \
-  claude --dangerously-skip-permissions --dangerously-load-development-channels server:broker-channel
+Agents connect via MCP URL — no file deployment needed:
+
+```json
+{
+  "mcpServers": {
+    "agent-rtc": {
+      "type": "url",
+      "url": "http://127.0.0.1:8800/mcp?agentId=session-a&displayName=Session+A"
+    }
+  }
+}
+```
+
+Or with Claude Code CLI:
+
+```bash
+claude --dangerously-skip-permissions --dangerously-load-development-channels server:broker-channel
 ```
 
 ## Features
 
+### Dashboard
+
+Web UI at `/` for monitoring and management:
+- Agent list with online status
+- Master pool management (add/remove from UI)
+- Recent message activity log
+- Live stats (agent count, master count, messages)
+
 ### Messaging
 
-From Session A, use the `reply` tool to send messages:
+From any connected agent, use the `reply` tool:
 
 ```
 reply(targetAgent: "session-b", text: "Write a poem about spring")
 ```
-
-Session B receives it as a `<channel>` event and can reply back.
 
 ### Permission Relay
 
@@ -64,7 +91,7 @@ add_master(masterAgentId: "session-a")
 
 When any agent needs tool approval, all masters receive the request. Respond with `yes <id>` or `no <id>`.
 
-### Available Tools
+### MCP Tools
 
 | Tool | Description |
 |------|-------------|
@@ -74,20 +101,29 @@ When any agent needs tool approval, all masters receive the request. Respond wit
 | `remove_master` | Remove a global master agent |
 | `list_masters` | List all master agents |
 
-## Testing
+### REST API
 
-```bash
-npm run build
-npm test
-```
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/health` | GET | Health check |
+| `/api/register` | POST | Register agent |
+| `/api/send` | POST | Send message |
+| `/api/poll` | GET | Poll messages |
+| `/api/agents` | GET | List agents |
+| `/api/masters` | GET | List master pool |
+| `/api/masters/add` | POST | Add master |
+| `/api/masters/remove` | POST | Remove master |
+| `/api/stats` | GET | Stats |
+| `/api/messages` | GET | Recent messages |
 
 ## Tech Stack
 
 - **Runtime**: Node.js (v25+)
+- **Framework**: Next.js 16 (custom server)
 - **Language**: TypeScript
-- **Protocol**: MCP (Model Context Protocol) over stdio
-- **Broker Transport**: HTTP (localhost)
-- **Key dependency**: [@modelcontextprotocol/sdk](https://www.npmjs.com/package/@modelcontextprotocol/sdk)
+- **Styling**: Tailwind CSS v4 with Claude-inspired parchment theme
+- **Protocol**: MCP Streamable HTTP (@modelcontextprotocol/server v2)
+- **State**: In-memory (shared across MCP + REST + dashboard)
 
 ## License
 
