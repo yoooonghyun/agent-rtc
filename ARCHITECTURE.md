@@ -1,115 +1,104 @@
 # Agent RTC — Architecture
 
-## v1: Direct Port-to-Port (bridge-channel)
+## Current: Next.js Custom Server (v5)
 
 ```
-Session A (port 8001)                    Session B (port 8002)
-  Claude ←stdio→ bridge MCP ──HTTP POST→ bridge MCP ←stdio→ Claude
-  Claude ←stdio→ bridge MCP ←HTTP POST── bridge MCP ←stdio→ Claude
-```
-
-Each session runs an independent HTTP server and sends messages directly to the other's port.
-Limitation: requires port allocation per agent and knowledge of the other's port.
-
-## v2: Central Broker (broker + broker-channel)
-
-```
-Session A ──┐                         ┌── Session B
-(broker-    ├──▶ Broker (port 8800) ◀─┤   (broker-
- channel)   │    register/send/poll   │    channel)
-Session C ──┘                         └── Session D
+                    ┌─────────────────────────────┐
+                    │   Next.js Custom Server       │
+                    │   (server.ts, single port)    │
+                    │                               │
+Session A ──MCP──▶  │  /mcp    → MCP Streamable HTTP│
+                    │                               │
+Session B ──MCP──▶  │  /mcp    → MCP Streamable HTTP│  ← shared broker-state
+                    │                               │
+curl/SDK ──HTTP──▶  │  /api/*  → REST API           │
+                    │                               │
+Browser ──HTTP──▶   │  /*      → Next.js Dashboard  │
+                    └─────────────────────────────┘
 ```
 
 ### Components
 
-1. **Broker** (`src/broker.ts`): Single HTTP server
-   - `POST /register` — Register agent (agentId + displayName)
-   - `POST /send` — Send message (from, to, text)
-   - `GET /poll?agentId=<id>` — Retrieve and consume pending messages
-   - `GET /agents` — List registered agents
-   - `GET /health` — Health check
+| File | Role |
+|---|---|
+| `server.ts` | Custom HTTP server: routes `/mcp`, `/api/*`, `/*` |
+| `lib/broker-state.ts` | Shared in-memory state (agents, queues, masters, message log) |
+| `lib/mcp-server.ts` | MCP server factory — creates per-session MCP server with tools |
+| `lib/api-handler.ts` | REST API handler (register, send, poll, agents, masters, stats) |
+| `app/layout.tsx` | Next.js root layout |
+| `app/page.tsx` | Dashboard page |
 
-2. **Broker Channel** (`src/broker-channel.ts`): MCP Channel server
-   - Auto-registers with broker on startup
-   - Polls broker for incoming messages, pushes as MCP notifications
-   - `reply` tool: Send message by agentId
-   - `list_agents` tool: List registered agents
+### MCP Connection
 
-### Message Flow
+Agents connect via URL — no local file deployment needed:
 
-1. Agent A's Claude calls `reply(targetAgent: "agent-b", text: "hello")`
-2. broker-channel sends `POST /send { from: "agent-a", to: "agent-b", text: "hello" }`
-3. Agent B's broker-channel receives via `GET /poll?agentId=agent-b`
-4. MCP notification → Claude receives `<channel from="agent-a" from_name="Researcher">hello</channel>`
+```json
+{
+  "mcpServers": {
+    "agent-rtc": {
+      "type": "url",
+      "url": "http://127.0.0.1:8800/mcp?agentId=session-a&displayName=Session+A"
+    }
+  }
+}
+```
+
+### MCP Tools
+
+| Tool | Description |
+|---|---|
+| `reply(targetAgent, text)` | Send message to another agent |
+| `list_agents()` | List all registered agents |
+| `add_master(masterAgentId)` | Add global master |
+| `remove_master(masterAgentId)` | Remove global master |
+| `list_masters()` | List master pool |
+
+### REST API
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/health` | GET | Health check |
+| `/api/register` | POST | Register agent `{ agentId, displayName }` |
+| `/api/send` | POST | Send message `{ from, to, text }` |
+| `/api/poll` | GET | Poll messages `?agentId=<id>` |
+| `/api/agents` | GET | List agents |
+| `/api/masters` | GET | List master pool |
+| `/api/masters/add` | POST | Add master `{ masterAgentId }` |
+| `/api/masters/remove` | POST | Remove master `{ masterAgentId }` |
+| `/api/stats` | GET | Agent count, master count, total messages |
+| `/api/messages` | GET | Recent message log (last 20) |
 
 ### Key Decisions
 
-- **Polling over WebSocket**: Prioritizing PoC simplicity. 1-second polling interval.
-- **In-memory queue**: No persistence. Messages lost on broker restart.
-- **agentId + displayName**: Routing uses agentId, display uses displayName.
+- **Custom server over App Router API**: Next.js App Router Route Handlers use Web API Request/Response which is incompatible with MCP SDK's NodeStreamableHTTPServerTransport. Also, App Router runs in a separate module scope — state isn't shared. Custom server solves both.
+- **Single process, shared state**: MCP sessions, REST API, and dashboard all share one `broker-state` module in one Node.js process.
+- **URL-based MCP connection**: Agents connect via `http://host:port/mcp?agentId=...` — eliminates broker-channel.js file distribution.
+- **In-memory state**: No database for PoC. State lost on restart.
 
-## v3: Permission Relay with Global Master Pool
+---
 
-### Architecture
+## Historical Versions
 
-```
-Master A ←──┐
-Master C ←──┤  fan-out
-            │
-Agent B ──▶ Broker ──▶ [Master A, Master C]  (simultaneous)
-  permission        first verdict wins
-  request
-```
-
-### Broker API
-
-- `POST /masters/add` — Add to master pool (`{ masterAgentId }`)
-- `POST /masters/remove` — Remove from master pool (`{ masterAgentId }`)
-- `GET /masters` — List master pool
-
-### broker-channel Tools
-
-- `add_master(masterAgentId)` — Add global master
-- `remove_master(masterAgentId)` — Remove global master
-- `list_masters()` — Query master pool
-
-### Permission Relay Flow
-
-1. Agent B requires permission for a tool call
-2. Claude Code → broker-channel: `permission_request` notification
-3. broker-channel fetches master pool via `GET /masters`
-4. Fan-out `POST /send` to all masters
-5. Any master sends `yes/no <id>` verdict
-6. Agent B's broker-channel receives verdict via poll
-7. Emits `notifications/claude/channel/permission` → Claude Code applies it
-
-### Key Decisions
-
-- **Global over per-agent master**: All agents' permissions go to the same master pool
-- **Fan-out with `Promise.allSettled`**: Delivery continues even if some masters are unreachable
-- **First verdict wins**: Leverages Claude Code's built-in behavior, no extra implementation needed
-
-## v4: Adaptive Feedback Agent
-
-### Architecture
+### v1: Direct Port-to-Port (bridge-channel)
 
 ```
-TaskCompleted (prompt hook)
-    │
-    ▼ (in-session, same process)
-Claude spawns adaptive-feedback subagent
-    ├── Scan tooling: CLAUDE.md, agents/, skills/, settings.json
-    ├── Detect: repetitive patterns, user feedback, rule conflicts
-    └── Write changes → CLAUDE.md, agents, skills, hooks
+Session A (port 8001) ──HTTP POST──▶ Session B (port 8002)
 ```
 
-### Components
+Each session ran its own HTTP + MCP stdio server. Required port allocation and knowledge of the other's port. Superseded by central broker.
 
-- **Agent**: `.claude/agents/adaptive-feedback.md` — sonnet model, restricted tools
-- **Hook**: `prompt` type in `.claude/settings.json` — triggers in-session subagent
+### v2: Central Broker (standalone broker.ts + broker-channel.ts)
 
-### Key Decisions
+```
+Session A ──stdio→ broker-channel ──HTTP──▶ Broker (standalone)
+```
 
-- **In-session execution**: `prompt` hook runs within the same Claude session — no external process, no race conditions
-- **Direct writes over proposals**: Agent writes changes directly; user reviews via `git diff`
-- **Restricted tool set**: No source code modification — only tooling files
+Separated broker (HTTP) from channel (MCP stdio). Agents communicated via agentId. Required deploying `broker-channel.js` to each agent.
+
+### v3: Permission Relay with Global Master Pool
+
+Added `POST /masters/add`, `POST /masters/remove`, `GET /masters` APIs. Permission requests fan-out to all masters via `Promise.allSettled`. First verdict wins (Claude Code built-in behavior).
+
+### v4: Adaptive Feedback Agent
+
+`TaskCompleted` prompt hook triggers adaptive-feedback subagent in-session. Scans CLAUDE.md, agents, skills, hooks for repetitive patterns, user feedback, and rule conflicts. Writes changes directly.
