@@ -1,6 +1,6 @@
 # Plan: Dashboard — v1
 
-**Status**: In Progress
+**Status**: Done
 **Created**: 2026-04-19
 **Last updated**: 2026-04-19
 **Spec**: [.sdd/specs/dashboard-v1.md]
@@ -37,20 +37,22 @@ Port the broker to a Next.js custom server with MCP HTTP endpoint. Extract state
 
 ### Phase 2 — Tailwind + Theme
 
-- [ ] Configure tailwind with DESIGN.md color tokens
-- [ ] Set up global styles (parchment background, typography)
+- [x] Configure Tailwind v4 with DESIGN.md color tokens via `@theme` in globals.css
+- [x] Set up global styles (parchment background, Georgia serif, warm neutrals)
 
 ### Phase 3 — Dashboard UI
 
-- [ ] Agent list component
-- [ ] Master pool management component
-- [ ] Message activity log component
-- [ ] Auto-refresh via polling
+- [x] Agent list component with master badge and add/remove buttons
+- [x] Master pool display component
+- [x] Message activity log component (reverse chronological, truncated preview)
+- [x] Stats bar component (agent count, master count, messages)
+- [x] Auto-refresh via `usePoll` hook (2s interval)
+- [x] Assembled dashboard page with header, stats, agents, masters, messages, footer
 
 ### Phase 4 — Docs
 
 - [x] Update plan with deviations (this file)
-- [ ] Update ARCHITECTURE.md
+- [x] Update ARCHITECTURE.md
 
 ---
 
