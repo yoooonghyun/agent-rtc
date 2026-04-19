@@ -57,11 +57,7 @@ Agents connect via MCP URL — no file deployment needed:
 }
 ```
 
-Or with Claude Code CLI:
-
-```bash
-claude --dangerously-skip-permissions --dangerously-load-development-channels server:broker-channel
-```
+Add this to your project's `.mcp.json` or Claude Code settings, then restart the session.
 
 ## Features
 
