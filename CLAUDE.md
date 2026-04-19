@@ -5,25 +5,28 @@ Real-time communication broker for inter-agent messaging, permission relay, and 
 ## Tech Stack
 
 - Runtime: Node.js (v25+)
+- Server: Express 5
+- Client: React 19 + Vite 8
 - Language: TypeScript
-- Protocol: MCP (Model Context Protocol) over stdio
-- Transport: HTTP (localhost) for inter-agent messaging
+- Styling: Tailwind CSS v4
+- Protocol: MCP Streamable HTTP (@modelcontextprotocol/server v2)
 
 ## Project Structure
 
-- `src/broker.ts` — Central broker server (register, send, poll, masters)
-- `src/broker-channel.ts` — MCP Channel server connecting Claude Code to the broker
-- `src/bridge-channel.ts` — v1 direct port-to-port channel (legacy)
-- `src/types.ts` — Shared type definitions
+- `server.ts` — Express server (MCP + REST API + static files)
+- `lib/broker-state.ts` — Shared in-memory state
+- `lib/mcp-server.ts` — MCP server factory
+- `app/` — React dashboard (Vite)
+- `src/` — Legacy standalone broker/channel (v1-v2)
 - `ARCHITECTURE.md` — Detailed architecture and design decisions
 
 ## Development Guide
 
-- Follow the SDD (Spec-Driven Development) workflow: specify → plan → interface → test → implement → update docs
+- **SDD is mandatory for all changes.** Even hotfixes and refactors must have a spec or at minimum a plan with deviations recorded. No code changes without updating `.sdd/`.
+- Follow the SDD workflow: specify → plan → interface → test → implement → update docs
 - Write specs and plans in `.sdd/` before writing code.
 - Write tests before implementation.
-- Use `--dangerously-load-development-channels` flag to test channels in development.
-- Build with `npm run build`, test with `npm test`.
+- Dev: `npm run dev` (Express :8800 + Vite :5173). Production: `npm run build && npm start`.
 
 ## Learned Rules
 
