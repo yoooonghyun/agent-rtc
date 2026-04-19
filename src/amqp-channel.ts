@@ -196,6 +196,8 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
             const data = JSON.parse(msg.content.toString()) as {
               from: string; fromDisplayName: string; text: string;
             };
+            // Skip own permission requests
+            if (data.from === AGENT_ID) return;
             mcp.notification({
               method: "notifications/claude/channel",
               params: {
@@ -313,6 +315,8 @@ if (IS_MASTER && permQueueCreated) {
       const data = JSON.parse(msg.content.toString()) as {
         from: string; fromDisplayName: string; text: string;
       };
+      // Skip own permission requests
+      if (data.from === AGENT_ID) return;
       mcp.notification({
         method: "notifications/claude/channel",
         params: {
