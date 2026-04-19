@@ -1,0 +1,20 @@
+{
+  "name": "agent-bridge-channel",
+  "version": "0.1.0",
+  "description": "Custom Channel MCP server for inter-session communication",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/bridge-channel.js",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@types/node": "^25.6.0",
+    "typescript": "^6.0.3",
+    "zod": "^4.3.6"
+  }
+}
