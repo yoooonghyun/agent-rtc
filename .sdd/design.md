@@ -88,3 +88,36 @@ Agent B ──▶ Broker ──▶ [Master A, Master C]  (simultaneous)
 - **Global over per-agent master**: All agents' permissions go to the same master pool
 - **Fan-out with `Promise.allSettled`**: Delivery continues even if some masters are unreachable
 - **First verdict wins**: Leverages Claude Code's built-in behavior, no extra implementation needed
+
+## v4: Adaptive Feedback Agent
+
+### Architecture
+
+```
+TaskCompleted hook
+    │
+    ▼
+scripts/on-task-completed.sh
+    │
+    ▼ (CLAUDECODE= claude -p --agent adaptive-feedback)
+    │
+Adaptive Feedback Agent
+    ├── Read session transcript
+    ├── Scan tooling: CLAUDE.md, agents/, skills/, settings.json
+    ├── Detect: repetitive patterns, user feedback, rule conflicts
+    └── Write changes → CLAUDE.md, agents, skills, hooks
+```
+
+### Components
+
+- **Agent**: `.claude/agents/adaptive-feedback.md` — sonnet model, restricted tools
+- **Hook**: `scripts/on-task-completed.sh` — parses JSON stdin, invokes agent
+- **Settings**: `.claude/settings.json` — TaskCompleted hook registration
+
+### Key Decisions
+
+- **Direct writes over proposals**: Agent writes changes directly; user reviews via `git diff`
+- **Restricted tool set**: No source code modification — only tooling files
+- **Silent failures**: Hook errors don't block task completion (`|| true`)
+- **In-session execution**: Uses `prompt` type hook — no shell scripts, no external processes, no race conditions
+- **Prompt delegates to subagent**: The hook prompt instructs Claude to spawn adaptive-feedback as a subagent
