@@ -17,6 +17,7 @@ const RABBITMQ_USER = process.env.RABBITMQ_USER ?? "guest";
 const RABBITMQ_PASS = process.env.RABBITMQ_PASS ?? "guest";
 const AGENT_NAME = process.env.AGENT_NAME ?? "Agent";
 const AGENT_ID = `agent-${randomUUID().slice(0, 8)}`;
+const IS_MASTER = process.env.IS_MASTER === "true";
 const EXCHANGE = "agent-rtc";
 const PERMISSION_REPLY_RE = /^\s*(y|yes|n|no)\s+([a-km-z]{5})\s*$/i;
 
@@ -67,7 +68,7 @@ await ch.bindQueue(agentQueue, EXCHANGE, `agent.${AGENT_ID}`);
 const permQueue = `perm.${AGENT_ID}`;
 let permQueueCreated = false;
 
-process.stderr.write(`[amqp] connected as ${AGENT_ID} (${AGENT_NAME})\n`);
+process.stderr.write(`[amqp] connected as ${AGENT_ID} (${AGENT_NAME})${IS_MASTER ? " [master]" : ""}\n`);
 
 // Publish agent metadata so others can discover display name
 await ch.assertQueue("agent-registry", { durable: true });
@@ -75,6 +76,15 @@ ch.sendToQueue(
   "agent-registry",
   Buffer.from(JSON.stringify({ agentId: AGENT_ID, displayName: AGENT_NAME, action: "register" }))
 );
+
+// Auto-register as master if IS_MASTER=true
+if (IS_MASTER) {
+  await ch.assertQueue(permQueue, { exclusive: true, autoDelete: true });
+  permQueueCreated = true;
+  await ch.bindQueue(permQueue, EXCHANGE, "permission.*");
+  // Consume will be set up after MCP server is created (see below)
+  process.stderr.write(`[amqp] registered as master\n`);
+}
 
 // --- MCP Server ---
 
@@ -294,7 +304,25 @@ ch.consume(agentQueue, (msg) => {
   }
 });
 
-// Permission queue consume is set up lazily in add_master tool
+// Set up permission queue consume if master (auto or via add_master)
+if (IS_MASTER && permQueueCreated) {
+  ch.consume(permQueue, (msg) => {
+    if (!msg) return;
+    ch.ack(msg);
+    try {
+      const data = JSON.parse(msg.content.toString()) as {
+        from: string; fromDisplayName: string; text: string;
+      };
+      mcp.notification({
+        method: "notifications/claude/channel",
+        params: {
+          content: data.text,
+          meta: { from: data.from, from_name: data.fromDisplayName },
+        },
+      });
+    } catch { /* malformed */ }
+  });
+}
 
 // --- Cleanup on exit ---
 
