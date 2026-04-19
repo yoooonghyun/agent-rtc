@@ -162,7 +162,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
 mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   if (req.params.name === "reply") {
     const { targetAgent, text } = req.params.arguments as { targetAgent: string; text: string };
-    const msg = JSON.stringify({ from: AGENT_ID, fromDisplayName: AGENT_NAME, text, timestamp: Date.now() });
+    const msg = JSON.stringify({ type: "message", from: AGENT_ID, fromDisplayName: AGENT_NAME, text, timestamp: Date.now() });
     ch.publish(EXCHANGE, `agent.${targetAgent}`, Buffer.from(msg));
     return { content: [{ type: "text" as const, text: "sent" }] };
   }
@@ -267,7 +267,7 @@ mcp.setNotificationHandler(PermissionRequestSchema, async ({ params }) => {
   ].join("\n");
 
   // Publish to permission topic — all masters receive it
-  const msg = JSON.stringify({ from: AGENT_ID, fromDisplayName: AGENT_NAME, text, timestamp: Date.now() });
+  const msg = JSON.stringify({ type: "permission_request", from: AGENT_ID, fromDisplayName: AGENT_NAME, text, timestamp: Date.now() });
   ch.publish(EXCHANGE, `permission.${AGENT_ID}`, Buffer.from(msg));
 });
 
@@ -278,8 +278,11 @@ ch.consume(agentQueue, (msg) => {
   ch.ack(msg);
   try {
     const data = JSON.parse(msg.content.toString()) as {
-      from: string; fromDisplayName: string; text: string;
+      type?: string; from: string; fromDisplayName: string; text: string;
     };
+
+    // Permission requests should only come via perm queue, not agent queue
+    if (data.type === "permission_request") return;
 
     // Check if this is a permission verdict
     const match = PERMISSION_REPLY_RE.exec(data.text);
