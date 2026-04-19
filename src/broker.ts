@@ -13,7 +13,7 @@ const PORT = parseInt(process.env.BROKER_PORT ?? "8000", 10);
 
 const agents = new Map<string, Agent>();
 const queues = new Map<string, QueuedMessage[]>();
-const masterAgents = new Map<string, string>(); // agentId → masterAgentId
+const masterPool = new Set<string>(); // global master agent IDs
 
 // --- Helpers ---
 
@@ -97,31 +97,33 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Set master agent
-  if (req.method === "POST" && url.pathname === "/master") {
-    const body = JSON.parse(await readBody(req)) as { agentId: string; masterAgentId: string };
-    if (!body.agentId || !body.masterAgentId) {
-      error(res, 400, "agentId and masterAgentId required");
+  // Add global master
+  if (req.method === "POST" && url.pathname === "/masters/add") {
+    const body = JSON.parse(await readBody(req)) as { masterAgentId: string };
+    if (!body.masterAgentId) {
+      error(res, 400, "masterAgentId required");
       return;
     }
-    if (!agents.has(body.masterAgentId)) {
-      error(res, 404, `master agent not found: ${body.masterAgentId}`);
-      return;
-    }
-    masterAgents.set(body.agentId, body.masterAgentId);
-    json(res, 200, { agentId: body.agentId, masterAgentId: body.masterAgentId });
+    masterPool.add(body.masterAgentId);
+    json(res, 200, { added: body.masterAgentId });
     return;
   }
 
-  // Get master agent for a given agent
-  if (req.method === "GET" && url.pathname === "/master") {
-    const agentId = url.searchParams.get("agentId");
-    if (!agentId) {
-      error(res, 400, "agentId required");
+  // Remove global master
+  if (req.method === "POST" && url.pathname === "/masters/remove") {
+    const body = JSON.parse(await readBody(req)) as { masterAgentId: string };
+    if (!body.masterAgentId) {
+      error(res, 400, "masterAgentId required");
       return;
     }
-    const master = masterAgents.get(agentId);
-    json(res, 200, { agentId, masterAgentId: master ?? null });
+    masterPool.delete(body.masterAgentId);
+    json(res, 200, { removed: body.masterAgentId });
+    return;
+  }
+
+  // List global masters
+  if (req.method === "GET" && url.pathname === "/masters") {
+    json(res, 200, Array.from(masterPool));
     return;
   }
 

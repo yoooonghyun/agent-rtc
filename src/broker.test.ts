@@ -155,4 +155,47 @@ describe("central broker", () => {
     assert.equal(dataC.messages.length, 1);
     assert.equal(dataC.messages[0].text, "only for c");
   });
+
+  // --- Global Masters ---
+
+  it("master 추가", async () => {
+    const res = await request("POST", "/masters/add", {
+      masterAgentId: "agent-a",
+    });
+    assert.equal(res.status, 200);
+  });
+
+  it("master 목록 조회", async () => {
+    await request("POST", "/masters/add", { masterAgentId: "agent-b" });
+    const res = await request("GET", "/masters");
+    assert.equal(res.status, 200);
+    const masters = (await res.json()) as string[];
+    assert.ok(masters.includes("agent-a"));
+    assert.ok(masters.includes("agent-b"));
+  });
+
+  it("중복 master 추가는 idempotent", async () => {
+    await request("POST", "/masters/add", { masterAgentId: "agent-a" });
+    const res = await request("GET", "/masters");
+    const masters = (await res.json()) as string[];
+    const count = masters.filter((m) => m === "agent-a").length;
+    assert.equal(count, 1);
+  });
+
+  it("master 제거", async () => {
+    const res = await request("POST", "/masters/remove", {
+      masterAgentId: "agent-b",
+    });
+    assert.equal(res.status, 200);
+    const listRes = await request("GET", "/masters");
+    const masters = (await listRes.json()) as string[];
+    assert.ok(!masters.includes("agent-b"));
+  });
+
+  it("존재하지 않는 master 제거 → 200", async () => {
+    const res = await request("POST", "/masters/remove", {
+      masterAgentId: "nonexistent",
+    });
+    assert.equal(res.status, 200);
+  });
 });

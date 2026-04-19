@@ -15,15 +15,14 @@ const config: BrokerChannelConfig = {
   pollIntervalMs: parseInt(process.env.POLL_INTERVAL_MS ?? "1000", 10),
 };
 
-let masterAgent = "";
+let masterPool: string[] = [];
 const PERMISSION_REPLY_RE = /^\s*(y|yes|n|no)\s+([a-km-z]{5})\s*$/i;
 
-async function fetchMaster(): Promise<void> {
+async function fetchMasters(): Promise<void> {
   try {
-    const res = await httpRequest("GET", `${config.brokerUrl}/master?agentId=${config.agentId}`);
+    const res = await httpRequest("GET", `${config.brokerUrl}/masters`);
     if (res.status === 200) {
-      const data = JSON.parse(res.body) as { masterAgentId: string | null };
-      masterAgent = data.masterAgentId ?? "";
+      masterPool = JSON.parse(res.body) as string[];
     }
   } catch {
     // broker unreachable
@@ -110,35 +109,39 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
-      name: "set_master",
-      description: "Register a master agent for a given agent. The master receives permission relay requests.",
+      name: "add_master",
+      description: "Add an agent to the global master pool. Masters receive permission relay requests from all agents.",
       inputSchema: {
         type: "object" as const,
         properties: {
-          agentId: {
-            type: "string",
-            description: "The agent to set a master for",
-          },
           masterAgentId: {
             type: "string",
-            description: "The master agent that will handle permission requests",
+            description: "The agentId to add as a global master",
           },
         },
-        required: ["agentId", "masterAgentId"],
+        required: ["masterAgentId"],
       },
     },
     {
-      name: "get_master",
-      description: "Get the master agent for a given agent",
+      name: "remove_master",
+      description: "Remove an agent from the global master pool",
       inputSchema: {
         type: "object" as const,
         properties: {
-          agentId: {
+          masterAgentId: {
             type: "string",
-            description: "The agent to query",
+            description: "The agentId to remove from the master pool",
           },
         },
-        required: ["agentId"],
+        required: ["masterAgentId"],
+      },
+    },
+    {
+      name: "list_masters",
+      description: "List all global master agents",
+      inputSchema: {
+        type: "object" as const,
+        properties: {},
       },
     },
   ],
@@ -163,32 +166,41 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
     }
   }
 
-  if (req.params.name === "set_master") {
-    const { agentId, masterAgentId } = req.params.arguments as unknown as { agentId: string; masterAgentId: string };
+  if (req.params.name === "add_master") {
+    const { masterAgentId } = req.params.arguments as unknown as { masterAgentId: string };
     try {
-      const res = await httpRequest(
+      await httpRequest(
         "POST",
-        `${config.brokerUrl}/master`,
-        JSON.stringify({ agentId, masterAgentId })
+        `${config.brokerUrl}/masters/add`,
+        JSON.stringify({ masterAgentId })
       );
-      if (res.status === 404) {
-        return { content: [{ type: "text" as const, text: `master agent not found: ${masterAgentId}` }] };
-      }
-      // Update local cache if setting for self
-      if (agentId === config.agentId) {
-        masterAgent = masterAgentId;
-      }
-      return { content: [{ type: "text" as const, text: `master set: ${agentId} → ${masterAgentId}` }] };
+      await fetchMasters();
+      return { content: [{ type: "text" as const, text: `master added: ${masterAgentId}` }] };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return { content: [{ type: "text" as const, text: `failed: ${msg}` }] };
     }
   }
 
-  if (req.params.name === "get_master") {
-    const { agentId } = req.params.arguments as unknown as { agentId: string };
+  if (req.params.name === "remove_master") {
+    const { masterAgentId } = req.params.arguments as unknown as { masterAgentId: string };
     try {
-      const res = await httpRequest("GET", `${config.brokerUrl}/master?agentId=${agentId}`);
+      await httpRequest(
+        "POST",
+        `${config.brokerUrl}/masters/remove`,
+        JSON.stringify({ masterAgentId })
+      );
+      await fetchMasters();
+      return { content: [{ type: "text" as const, text: `master removed: ${masterAgentId}` }] };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { content: [{ type: "text" as const, text: `failed: ${msg}` }] };
+    }
+  }
+
+  if (req.params.name === "list_masters") {
+    try {
+      const res = await httpRequest("GET", `${config.brokerUrl}/masters`);
       return { content: [{ type: "text" as const, text: res.body }] };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -222,6 +234,11 @@ const PermissionRequestSchema = z.object({
 });
 
 mcp.setNotificationHandler(PermissionRequestSchema, async ({ params }) => {
+  if (masterPool.length === 0) {
+    process.stderr.write(`permission relay skipped: no masters registered\n`);
+    return;
+  }
+
   const text = [
     `Permission Request from ${config.agentId} (${config.displayName})`,
     `Tool: ${params.tool_name}`,
@@ -231,15 +248,18 @@ mcp.setNotificationHandler(PermissionRequestSchema, async ({ params }) => {
     `Reply: "yes ${params.request_id}" or "no ${params.request_id}"`,
   ].join("\n");
 
-  try {
-    await httpRequest(
-      "POST",
-      `${config.brokerUrl}/send`,
-      JSON.stringify({ from: config.agentId, to: masterAgent, text })
-    );
-  } catch {
-    process.stderr.write(`failed to relay permission request to ${masterAgent}\n`);
-  }
+  // Fan-out to all masters
+  await Promise.allSettled(
+    masterPool.map((master) =>
+      httpRequest(
+        "POST",
+        `${config.brokerUrl}/send`,
+        JSON.stringify({ from: config.agentId, to: master, text })
+      ).catch(() => {
+        process.stderr.write(`failed to relay permission request to ${master}\n`);
+      })
+    )
+  );
 });
 
 // --- Register with broker ---
@@ -303,11 +323,11 @@ async function poll(): Promise<void> {
 // --- Start ---
 
 await register();
-await fetchMaster();
+await fetchMasters();
 const transport = new StdioServerTransport();
 await mcp.connect(transport);
 
 setInterval(async () => {
-  await fetchMaster();
+  await fetchMasters();
   await poll();
 }, config.pollIntervalMs);
