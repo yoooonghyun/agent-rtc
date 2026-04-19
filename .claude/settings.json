@@ -4,10 +4,10 @@
       {
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "A task was just completed. Spawn the adaptive-feedback agent as a subagent to analyze the completed work and update project tooling (CLAUDE.md, agents, skills, hooks). The agent definition is at .claude/agents/adaptive-feedback.md.",
+            "type": "agent",
+            "prompt": "Read .claude/agents/adaptive-feedback.md and follow its instructions exactly. A task was just completed — analyze the work and improve project tooling.",
             "timeout": 120,
-            "statusMessage": "Adaptive feedback"
+            "statusMessage": "Running adaptive feedback"
           }
         ]
       }
