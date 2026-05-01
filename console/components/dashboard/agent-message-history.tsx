@@ -77,13 +77,43 @@ export function AgentMessageHistory({ agentId }: AgentMessageHistoryProps) {
         background: "#fff",
       }}
     >
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle
           className="text-base font-semibold"
           style={{ color: "var(--fg-primary)" }}
         >
           Message history
+          {total > 0 && (
+            <span
+              className="text-xs font-normal ml-2"
+              style={{ color: "var(--fg-tertiary)" }}
+            >
+              {page}/{totalPages}
+            </span>
+          )}
         </CardTitle>
+        {total > 0 && (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              style={{ minWidth: 32, padding: "4px 8px" }}
+            >
+              &lt;
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              style={{ minWidth: 32, padding: "4px 8px" }}
+            >
+              &gt;
+            </Button>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         {loading && messages.length === 0 && (
@@ -163,32 +193,6 @@ export function AgentMessageHistory({ agentId }: AgentMessageHistoryProps) {
               </TableBody>
             </Table>
 
-            <div className="flex items-center justify-between mt-4">
-              <p
-                className="text-xs"
-                style={{ color: "var(--fg-tertiary)" }}
-              >
-                Page {page} of {totalPages} ({total} messages)
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
           </>
         )}
       </CardContent>
