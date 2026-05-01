@@ -10,6 +10,7 @@ import {
   Shield,
   MessageSquare,
   BarChart3,
+  Send,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
   { href: "/agents", label: "Agents", icon: Users },
   { href: "/masters", label: "Masters", icon: Shield },
   { href: "/messages", label: "Messages", icon: MessageSquare },
+  { href: "/chat", label: "Chat", icon: Send },
 ] as const;
 
 interface ShellProps {
@@ -51,12 +53,6 @@ export function Shell({ children, rightRail }: ShellProps) {
             height={32}
             style={{ height: 32, width: "auto" }}
           />
-          <span
-            className="text-sm font-semibold"
-            style={{ color: "var(--fg-tertiary)" }}
-          >
-            console
-          </span>
         </Link>
         <div className="flex items-center gap-1.5 ml-auto">
           <Activity size={16} style={{ color: "var(--success-500)" }} />
