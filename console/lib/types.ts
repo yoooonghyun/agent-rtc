@@ -17,6 +17,7 @@ export interface Message {
   sender: string;
   senderDisplayName: string;
   receiver: string;
+  receiverDisplayName: string;
   text: string;
   timestamp: string;
 }

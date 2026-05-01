@@ -107,7 +107,7 @@ export function MessageLog({ messages }: MessageLogProps) {
                         color: "var(--fg-secondary)",
                       }}
                     >
-                      {msg.receiver}
+                      {msg.receiverDisplayName || msg.receiver}
                     </code>
                   </TableCell>
                   <TableCell

@@ -50,22 +50,28 @@ export async function GET(req: NextRequest) {
 
       case "messages": {
         const entries = await redis.xrevrange("agent-rtc:messages", "+", "-", "COUNT", 100);
-        const messages = entries.map(([id, fields]) => {
-          const fieldMap: Record<string, string> = {};
-          for (let i = 0; i < fields.length; i += 2) {
-            fieldMap[fields[i]] = fields[i + 1];
-          }
-          const data = fieldMap.data ? JSON.parse(fieldMap.data) : {};
-          return {
-            id,
-            type: data.type || "message",
-            sender: data.from || "",
-            senderDisplayName: data.fromDisplayName || data.from || "",
-            receiver: data.to || "",
-            text: data.text || "",
-            timestamp: data.timestamp || id.split("-")[0],
-          };
-        });
+        const messages = await Promise.all(
+          entries.map(async ([id, fields]) => {
+            const fieldMap: Record<string, string> = {};
+            for (let i = 0; i < fields.length; i += 2) {
+              fieldMap[fields[i]] = fields[i + 1];
+            }
+            const data = fieldMap.data ? JSON.parse(fieldMap.data) : {};
+            const receiverMeta = data.to
+              ? await redis.hgetall(`agent-rtc:meta:${data.to}`)
+              : {};
+            return {
+              id,
+              type: data.type || "message",
+              sender: data.from || "",
+              senderDisplayName: data.fromDisplayName || data.from || "",
+              receiver: data.to || "",
+              receiverDisplayName: receiverMeta.displayName || data.to || "",
+              text: data.text || "",
+              timestamp: data.timestamp || id.split("-")[0],
+            };
+          })
+        );
         return NextResponse.json(messages);
       }
 
