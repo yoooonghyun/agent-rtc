@@ -244,31 +244,31 @@ export function AgentDetailView({
               </div>
               <Separator />
               <StatRow label="Description" value={detail.description || "-"} />
-              {detail.tags.length > 0 && (
-                <>
-                  <Separator />
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-sm" style={{ color: "var(--fg-tertiary)" }}>Tags</span>
-                    <div className="flex flex-wrap gap-1.5 justify-end">
-                      {detail.tags.map((tag) => (
-                        <Badge
-                          key={tag}
-                          variant="secondary"
-                          className="text-xs px-2 py-0.5"
-                          style={{
-                            background: "var(--grey-50)",
-                            color: "var(--fg-secondary)",
-                            border: "1px solid var(--grey-100)",
-                            fontWeight: 400,
-                          }}
-                        >
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
+              <Separator />
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm" style={{ color: "var(--fg-tertiary)" }}>Tags</span>
+                {detail.tags.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 justify-end">
+                    {detail.tags.map((tag) => (
+                      <Badge
+                        key={tag}
+                        variant="secondary"
+                        className="text-xs px-2 py-0.5"
+                        style={{
+                          background: "var(--grey-50)",
+                          color: "var(--fg-secondary)",
+                          border: "1px solid var(--grey-100)",
+                          fontWeight: 400,
+                        }}
+                      >
+                        {tag}
+                      </Badge>
+                    ))}
                   </div>
-                </>
-              )}
+                ) : (
+                  <span className="text-sm font-medium tabular-nums" style={{ color: "var(--fg-primary)" }}>-</span>
+                )}
+              </div>
             </>
           )}
         </CardContent>
