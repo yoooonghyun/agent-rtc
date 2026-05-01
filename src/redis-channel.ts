@@ -7,6 +7,8 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import Redis from "ioredis";
 
 // --- Config ---
@@ -33,10 +35,49 @@ const redisSub = new RedisConstructor(REDIS_URL);
 let redisPermSub: any = IS_MASTER ? new RedisConstructor(REDIS_URL) : null;
 let permListenerStarted = false;
 
+// --- Build agent metadata from environment ---
+
+function loadDescription(): string {
+  // Try reading CLAUDE.md from current working directory
+  const candidates = ["CLAUDE.md", ".claude/CLAUDE.md"];
+  for (const candidate of candidates) {
+    const filePath = path.resolve(process.cwd(), candidate);
+    try {
+      const content = fs.readFileSync(filePath, "utf-8");
+      // Extract first paragraph as description (skip heading)
+      const lines = content.split("\n").filter((l) => l.trim() && !l.startsWith("#"));
+      return lines.slice(0, 3).join(" ").trim().slice(0, 500) || "No description";
+    } catch { /* file not found */ }
+  }
+  return process.env.AGENT_DESCRIPTION ?? "No description";
+}
+
+function loadTags(): string[] {
+  const envTags = process.env.AGENT_TAGS;
+  if (envTags) return envTags.split(",").map((t) => t.trim());
+
+  // Auto-detect from project
+  const tags: string[] = [];
+  const cwd = process.cwd();
+  if (fs.existsSync(path.join(cwd, "package.json"))) tags.push("node");
+  if (fs.existsSync(path.join(cwd, "tsconfig.json"))) tags.push("typescript");
+  if (fs.existsSync(path.join(cwd, "CLAUDE.md"))) tags.push("claude-code");
+  if (fs.existsSync(path.join(cwd, ".git"))) tags.push("git");
+  return tags;
+}
+
+const agentDescription = loadDescription();
+const agentTags = loadTags();
+
 // --- Register agent ---
 
 await redis.sadd(`${P}:agents`, AGENT_ID);
-await redis.hset(`${P}:meta:${AGENT_ID}`, "displayName", AGENT_NAME);
+await redis.hset(
+  `${P}:meta:${AGENT_ID}`,
+  "displayName", AGENT_NAME,
+  "description", agentDescription,
+  "tags", JSON.stringify(agentTags),
+);
 await redis.set(`${P}:presence:${AGENT_ID}`, "1", "EX", PRESENCE_TTL);
 
 if (IS_MASTER) {
