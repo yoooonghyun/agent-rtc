@@ -10,5 +10,6 @@ Real-time communication broker for inter-agent messaging, permission relay, and 
 - Write tests before implementation.
 - Write modular, reusable code. Avoid duplicating logic.
 - Avoid `any` type. Use proper TypeScript types for type safety.
+- Use enums or const objects for string literals used in conditionals and filters (e.g. message types, actions). Avoid raw string comparisons.
 - When working with libraries or frameworks, use the context7 MCP tool (`resolve-library-id` → `query-docs`) to fetch current documentation before implementation. Do not rely solely on training data.
 - Refer to `ARCHITECTURE.md` for tech stack, project structure, and design decisions.
