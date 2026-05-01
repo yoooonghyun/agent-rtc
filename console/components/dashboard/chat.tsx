@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import ReactMarkdown from "react-markdown";
 import { useAgentStore } from "@/lib/stores";
 import { sendMessage, fetchChatMessages } from "@/lib/api";
 import { MentionInput } from "./mention-input";
@@ -47,16 +48,20 @@ function ChatBubble({
           : `From ${message.senderDisplayName || message.sender}`}
       </span>
       <div
-        className="px-4 py-2.5 text-sm"
+        className="px-4 py-2.5 text-sm prose prose-sm max-w-none"
         style={{
           borderRadius: 16,
           background: isSent ? "var(--brand)" : "var(--grey-50)",
           color: isSent ? "#fff" : "var(--fg-primary)",
           wordBreak: "break-word",
           lineHeight: 1.5,
+          ["--tw-prose-body" as string]: isSent ? "#fff" : "var(--fg-primary)",
+          ["--tw-prose-headings" as string]: isSent ? "#fff" : "var(--fg-primary)",
+          ["--tw-prose-bold" as string]: isSent ? "#fff" : "var(--fg-primary)",
+          ["--tw-prose-code" as string]: isSent ? "#dbeafe" : "var(--fg-secondary)",
         }}
       >
-        {message.text}
+        <ReactMarkdown>{message.text}</ReactMarkdown>
       </div>
       <span
         className="text-xs tabular-nums"
