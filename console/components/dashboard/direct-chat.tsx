@@ -4,6 +4,7 @@ import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { sendMessage, fetchDirectMessages } from "@/lib/api";
 import type { Message } from "@/lib/types";
 
@@ -136,14 +137,13 @@ export function DirectChat({
   }
 
   return (
-    <div
-      className="flex flex-col"
+    <Card
+      className="flex flex-col overflow-hidden"
       style={{
         minHeight: 400,
-        background: "#fff",
         borderRadius: 16,
         border: "1px solid var(--grey-100)",
-        overflow: "hidden",
+        background: "#fff",
       }}
     >
       {/* Header */}
@@ -217,6 +217,6 @@ export function DirectChat({
           <Send className="h-4 w-4" />
         </Button>
       </div>
-    </div>
+    </Card>
   );
 }
