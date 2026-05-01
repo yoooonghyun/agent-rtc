@@ -69,14 +69,16 @@ export default function AgentDetailPage({
         </p>
       </div>
 
-      <AgentDetailView detail={detail} loading={loading} error={error} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <AgentDetailView detail={detail} loading={loading} error={error} />
 
-      {detail && (
-        <DirectChat
-          agentId={agentId}
-          agentDisplayName={detail.displayName}
-        />
-      )}
+        {detail && (
+          <DirectChat
+            agentId={agentId}
+            agentDisplayName={detail.displayName}
+          />
+        )}
+      </div>
     </div>
   );
 }
