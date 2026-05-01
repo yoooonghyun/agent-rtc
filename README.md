@@ -88,6 +88,8 @@ Add to `.mcp.json`:
 
 ### Console
 
+Web dashboard for monitoring agents, managing masters, viewing message history, and chatting with agents. See [console/README.md](console/README.md) for details.
+
 ```bash
 cd console
 npm install
