@@ -110,12 +110,21 @@ export function Chat() {
       } else {
         next.add(agentId);
       }
+      // If all online agents are now selected, reset to "All" mode
+      const onlineIds = agents.filter((a) => a.online).map((a) => a.agentId);
+      if (onlineIds.every((id) => next.has(id))) {
+        return new Set();
+      }
       return next;
     });
   }
 
-  function clearFilter() {
-    setSelectedAgentIds(new Set());
+  function toggleAll() {
+    if (isAllSelected) {
+      setSelectedAgentIds(new Set(["__none__"]));
+    } else {
+      setSelectedAgentIds(new Set());
+    }
   }
 
   const pollChat = React.useCallback(async () => {
@@ -137,6 +146,7 @@ export function Chat() {
   const sortedMessages = React.useMemo(() => {
     const reversed = [...messages].reverse();
     if (isAllSelected) return reversed;
+    if (selectedAgentIds.has("__none__") && selectedAgentIds.size === 1) return [];
     return reversed.filter(
       (msg) => selectedAgentIds.has(msg.sender) || selectedAgentIds.has(msg.receiver)
     );
@@ -189,47 +199,61 @@ export function Chat() {
     >
       {/* Header */}
       <div
-        className="flex items-center px-5 gap-3 shrink-0"
-        style={{
-          height: 56,
-          borderBottom: "1px solid var(--grey-100)",
-        }}
+        className="shrink-0"
+        style={{ borderBottom: "1px solid var(--grey-100)" }}
       >
-        <h2
-          className="text-base font-semibold shrink-0"
-          style={{ color: "var(--fg-primary)" }}
+        <div
+          className="flex items-center px-5 gap-3"
+          style={{ height: 56 }}
         >
-          Chat
-        </h2>
-        <div className="flex items-center gap-1.5 overflow-x-auto">
-          <button
-            onClick={clearFilter}
-            className="text-xs font-medium px-3 py-1 rounded-full shrink-0 transition-colors"
-            style={{
-              background: isAllSelected ? "var(--brand)" : "var(--grey-50)",
-              color: isAllSelected ? "#fff" : "var(--fg-secondary)",
-              border: isAllSelected ? "none" : "1px solid var(--grey-100)",
-            }}
+          <h2
+            className="text-base font-semibold shrink-0"
+            style={{ color: "var(--fg-primary)" }}
           >
+            Chat
+          </h2>
+          <span
+            className="text-xs"
+            style={{ color: "var(--fg-tertiary)" }}
+          >
+            {agents.filter((a) => a.online).length} agents online
+          </span>
+        </div>
+        <div
+          className="flex items-center gap-3 px-5 pb-3 overflow-x-auto"
+        >
+          <label
+            className="flex items-center gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
+            style={{ color: "var(--fg-secondary)" }}
+          >
+            <input
+              type="checkbox"
+              checked={isAllSelected}
+              onChange={toggleAll}
+              className="accent-[var(--brand)]"
+              style={{ width: 14, height: 14 }}
+            />
             All
-          </button>
+          </label>
           {agents
             .filter((a) => a.online)
             .map((agent) => {
-              const active = selectedAgentIds.has(agent.agentId);
+              const checked = isAllSelected || selectedAgentIds.has(agent.agentId);
               return (
-                <button
+                <label
                   key={agent.agentId}
-                  onClick={() => toggleAgentFilter(agent.agentId)}
-                  className="text-xs font-medium px-3 py-1 rounded-full shrink-0 transition-colors"
-                  style={{
-                    background: active ? "var(--brand)" : "var(--grey-50)",
-                    color: active ? "#fff" : "var(--fg-secondary)",
-                    border: active ? "none" : "1px solid var(--grey-100)",
-                  }}
+                  className="flex items-center gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
+                  style={{ color: "var(--fg-secondary)" }}
                 >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleAgentFilter(agent.agentId)}
+                    className="accent-[var(--brand)]"
+                    style={{ width: 14, height: 14 }}
+                  />
                   {agent.displayName}
-                </button>
+                </label>
               );
             })}
         </div>
