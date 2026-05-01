@@ -30,7 +30,8 @@ const STREAM_MAXLEN = 10000;
 const RedisConstructor = Redis as any;
 const redis = new RedisConstructor(REDIS_URL);
 const redisSub = new RedisConstructor(REDIS_URL);
-const redisPermSub = IS_MASTER ? new RedisConstructor(REDIS_URL) : null;
+let redisPermSub: any = IS_MASTER ? new RedisConstructor(REDIS_URL) : null;
+let permListenerStarted = false;
 
 // --- Register agent ---
 
@@ -170,6 +171,15 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   if (req.params.name === "add_master") {
     const { masterAgentId } = req.params.arguments as { masterAgentId: string };
     await redis.sadd(`${P}:masters`, masterAgentId);
+    // Start permission listener if adding self and not already listening
+    if (masterAgentId === AGENT_ID && !permListenerStarted) {
+      if (!redisPermSub) {
+        redisPermSub = new RedisConstructor(REDIS_URL);
+      }
+      listenPermissionStream();
+      permListenerStarted = true;
+      process.stderr.write(`[redis] started permission listener\n`);
+    }
     return { content: [{ type: "text" as const, text: `master added: ${masterAgentId}` }] };
   }
 
@@ -319,9 +329,7 @@ async function cleanup() {
   await redis.srem(`${P}:agents`, AGENT_ID);
   await redis.del(`${P}:presence:${AGENT_ID}`);
   await redis.del(`${P}:meta:${AGENT_ID}`);
-  if (IS_MASTER) {
-    await redis.srem(`${P}:masters`, AGENT_ID);
-  }
+  await redis.srem(`${P}:masters`, AGENT_ID);
   redis.disconnect();
   redisSub.disconnect();
   redisPermSub?.disconnect();
@@ -338,4 +346,7 @@ await mcp.connect(transport);
 
 // Start stream listeners (non-blocking)
 listenAgentStream();
-if (IS_MASTER) listenPermissionStream();
+if (IS_MASTER) {
+  listenPermissionStream();
+  permListenerStarted = true;
+}
