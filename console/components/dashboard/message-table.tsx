@@ -45,6 +45,21 @@ export function MessageTable({ messages, maxRows }: MessageTableProps) {
   }
 
   return (
+    <>
+    <div
+      id="msg-tooltip"
+      className="whitespace-pre-wrap text-sm px-3 py-2 rounded-lg"
+      style={{
+        display: "none",
+        position: "fixed",
+        zIndex: 9999,
+        maxWidth: 400,
+        background: "var(--fg-primary)",
+        color: "#fff",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+        pointerEvents: "none",
+      }}
+    />
     <Table>
       <TableHeader>
         <TableRow>
@@ -98,45 +113,31 @@ export function MessageTable({ messages, maxRows }: MessageTableProps) {
               </code>
             </TableCell>
             <TableCell
-              className="text-sm max-w-xs relative"
+              className="text-sm max-w-xs"
               style={{ color: "var(--fg-primary)" }}
               onMouseEnter={(e) => {
-                const cell = e.currentTarget;
-                const tip = cell.querySelector("[data-tip]") as HTMLElement;
+                if (msg.text.length <= 80) return;
+                const tip = document.getElementById("msg-tooltip");
                 if (tip) {
-                  const rect = cell.getBoundingClientRect();
-                  const x = e.clientX - rect.left;
-                  tip.style.left = `${x}px`;
+                  tip.textContent = msg.text;
                   tip.style.display = "block";
+                  tip.style.left = `${e.clientX}px`;
+                  tip.style.top = `${e.clientY + 12}px`;
                 }
               }}
-              onMouseLeave={(e) => {
-                const tip = e.currentTarget.querySelector("[data-tip]") as HTMLElement;
+              onMouseLeave={() => {
+                const tip = document.getElementById("msg-tooltip");
                 if (tip) tip.style.display = "none";
               }}
             >
               <span className="block truncate cursor-default">
                 {truncate(msg.text, 80)}
               </span>
-              {msg.text.length > 80 && (
-                <div
-                  data-tip=""
-                  className="absolute z-50 hidden max-w-md whitespace-pre-wrap text-sm px-3 py-2 rounded-lg"
-                  style={{
-                    top: "calc(100% + 4px)",
-                    background: "var(--fg-primary)",
-                    color: "#fff",
-                    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
-                    pointerEvents: "none",
-                  }}
-                >
-                  {msg.text}
-                </div>
-              )}
             </TableCell>
           </TableRow>
         ))}
       </TableBody>
     </Table>
+    </>
   );
 }
