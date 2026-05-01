@@ -38,13 +38,17 @@ export function Shell({ children, rightRail }: ShellProps) {
     <div className="min-h-screen" style={{ background: "var(--grey-50)" }}>
       {/* Top bar */}
       <header
-        className="sticky top-0 z-10 flex items-center px-6 gap-8"
+        className="sticky top-0 z-10"
         style={{
           height: 64,
           borderBottom: "1px solid var(--grey-100)",
           background: "#fff",
         }}
       >
+        <div
+          className="flex items-center px-6 gap-8 mx-auto h-full"
+          style={{ maxWidth: 1440 }}
+        >
         <Link href="/" className="flex items-center gap-2 no-underline">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -62,6 +66,7 @@ export function Shell({ children, rightRail }: ShellProps) {
           >
             Connected
           </span>
+        </div>
         </div>
       </header>
 
