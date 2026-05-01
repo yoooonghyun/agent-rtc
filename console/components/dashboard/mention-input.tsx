@@ -58,7 +58,7 @@ export function MentionInput({ agents, onSend, disabled }: MentionInputProps) {
   function selectAgent(agent: Agent) {
     const atIndex = value.lastIndexOf("@");
     const before = atIndex >= 0 ? value.slice(0, atIndex) : value;
-    setValue(before + "@" + agent.displayName + " ");
+    setValue(before.trim() ? before.trim() + " " : "");
     setTargetAgent(agent);
     setShowDropdown(false);
     inputRef.current?.focus();
@@ -95,15 +95,7 @@ export function MentionInput({ agents, onSend, disabled }: MentionInputProps) {
 
   function handleSend() {
     if (!targetAgent || disabled) return;
-
-    // Extract text after the @mention
-    const mentionTag = "@" + targetAgent.displayName;
-    const idx = value.indexOf(mentionTag);
-    const text =
-      idx >= 0
-        ? (value.slice(0, idx) + value.slice(idx + mentionTag.length)).trim()
-        : value.trim();
-
+    const text = value.trim();
     if (!text) return;
 
     onSend(targetAgent.agentId, text);
