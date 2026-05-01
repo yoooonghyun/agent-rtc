@@ -145,7 +145,13 @@ export function Chat() {
   const pollChat = React.useCallback(async () => {
     try {
       const result = await fetchChatMessages(50);
-      setMessages(result.messages);
+      setMessages((prev) => {
+        if (prev.length === 0) return result.messages;
+        // Merge: keep older messages that aren't in the new batch, then append new batch
+        const newIds = new Set(result.messages.map((m) => m.id));
+        const olderOnly = prev.filter((m) => !newIds.has(m.id));
+        return [...result.messages, ...olderOnly];
+      });
       setHasMore(result.hasMore);
     } catch { /* ignore */ }
   }, []);
@@ -155,13 +161,20 @@ export function Chat() {
     setLoadingMore(true);
     try {
       const oldestId = messages[messages.length - 1].id;
+      const prevScrollHeight = scrollRef.current?.scrollHeight ?? 0;
       const result = await fetchChatMessages(50, oldestId);
       if (result.messages.length > 0) {
-        // Deduplicate by id
         const existingIds = new Set(messages.map((m) => m.id));
         const newMsgs = result.messages.filter((m) => !existingIds.has(m.id));
         if (newMsgs.length > 0) {
           setMessages((prev) => [...prev, ...newMsgs]);
+          // Restore scroll position after older messages are added
+          requestAnimationFrame(() => {
+            if (scrollRef.current) {
+              const newScrollHeight = scrollRef.current.scrollHeight;
+              scrollRef.current.scrollTop = newScrollHeight - prevScrollHeight;
+            }
+          });
         }
         setHasMore(result.hasMore && newMsgs.length > 0);
       } else {
