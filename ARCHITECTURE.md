@@ -1,68 +1,72 @@
 # Agent RTC — Architecture
 
-## Current: AMQP Transport (v7)
+## Current: Redis Streams (v8)
 
 ```
-Session A ──stdio→ amqp-channel ──AMQP──▶ RabbitMQ ◀──AMQP── amqp-channel ←stdio── Session B
-                                            │
-                                     Management UI
-                                     (localhost:15672)
+Session A ──stdio→ redis-channel ──Redis Streams──▶ Redis ◀── redis-channel ←stdio── Session B
+                                                      │
+                                                   Console
+                                                (Next.js :3001)
 ```
 
 ### Components
 
 | File | Role |
 |---|---|
-| `src/amqp-channel.ts` | MCP ↔ AMQP adapter. Connects to RabbitMQ, declares queues, subscribes, exposes MCP tools |
+| `src/redis-channel.ts` | MCP ↔ Redis adapter. XADD/XREAD BLOCK for messaging, Sets for registry |
 | `src/types.ts` | Shared type definitions |
+| `console/` | Next.js dashboard — queries Redis via API proxy |
 
-### How it works
+### Redis Key Schema
 
-1. Each agent connects to RabbitMQ and declares an exclusive auto-delete queue (`agent.{agentId}`)
-2. Queue is bound to topic exchange `agent-rtc` with routing key `agent.{agentId}`
-3. Messages are published to exchange with target agent's routing key
-4. Messages arrive instantly via AMQP subscribe — no polling
-5. When session ends, AMQP connection closes, queue is auto-deleted by RabbitMQ
+All keys prefixed with `agent-rtc:`:
 
-### Agent Connection
+| Key | Type | Description |
+|---|---|---|
+| `agent-rtc:agents` | Set | All registered agent IDs |
+| `agent-rtc:meta:{agentId}` | Hash | Agent metadata (displayName) |
+| `agent-rtc:presence:{agentId}` | String + TTL | Online presence (30s TTL, refreshed every 10s) |
+| `agent-rtc:agent:{agentId}` | Stream | Per-agent message queue |
+| `agent-rtc:messages` | Stream | Global message log (console history) |
+| `agent-rtc:masters` | Set | Master agent IDs |
+| `agent-rtc:permissions` | Stream | Permission relay requests |
 
-```json
-{
-  "mcpServers": {
-    "agent-rtc": {
-      "command": "node",
-      "args": ["dist/amqp-channel.js"],
-      "env": {
-        "AMQP_URL": "amqp://localhost",
-        "AGENT_NAME": "My Agent",
-        "IS_MASTER": "false"
-      }
-    }
-  }
-}
-```
+### Message Flow
 
-### MCP Tools
+1. Agent A calls `reply(targetAgent, text)`
+2. redis-channel XADDs to `agent-rtc:agent:{targetAgent}` and `agent-rtc:messages`
+3. Agent B's redis-channel receives via XREAD BLOCK on its own stream
+4. Message delivered as `notifications/claude/channel` to Claude
 
-| Tool | Description |
-|---|---|
-| `reply(targetAgent, text)` | Publish message to target agent's queue |
-| `list_agents()` | Query RabbitMQ Management API for active agent queues |
-| `add_master(masterAgentId)` | Bind agent's perm queue to `permission.*` routing key |
-| `remove_master(masterAgentId)` | Unbind from `permission.*` |
-| `list_masters()` | Query Management API for `permission.*` bindings |
+### Agent Presence
+
+- On connect: SADD + HSET meta + SET presence with 30s TTL
+- Every 10s: refresh presence TTL
+- On normal exit (SIGTERM/SIGINT): SREM + DEL presence + DEL meta
+- On crash: presence TTL expires → periodic sweep removes from Set
 
 ### Permission Relay
 
-- Masters bind `perm.{agentId}` queue to `permission.*` routing key
-- Permission requests are published with routing key `permission.{agentId}`
-- All masters receive fan-out — first verdict wins
-- Own permission requests are skipped
+- Masters registered in `agent-rtc:masters` Set (via `add_master` tool or `IS_MASTER=true`)
+- Permission requests XADDed to `agent-rtc:permissions` stream
+- Masters XREAD BLOCK on permissions stream
+- Own requests skipped (`from === AGENT_ID`)
+- First verdict wins (Claude Code built-in)
+
+### MCP Tools
+
+| Tool | Redis Operation |
+|---|---|
+| `reply(targetAgent, text)` | XADD to target agent's stream + global messages stream |
+| `list_agents()` | SMEMBERS agents + HGETALL meta + EXISTS presence |
+| `add_master(id)` | SADD masters |
+| `remove_master(id)` | SREM masters |
+| `list_masters()` | SMEMBERS masters |
 
 ### Key Decisions
 
-- **AMQP over HTTP polling**: Instant push, reliable delivery, auto-cleanup
-- **RabbitMQ exclusive queues**: Auto-deleted on disconnect — no stale agents
-- **Queue arguments for metadata**: `x-agent-name` stores display name for discovery
-- **No custom server**: RabbitMQ handles routing, Management UI serves as dashboard
-- **IS_MASTER env var**: Auto-registers as master on startup
+- **Redis over RabbitMQ**: Streams provide both instant delivery AND persistent history
+- **XREAD BLOCK**: Blocking read — no polling, instant push
+- **TTL-based presence**: Backup for crash cleanup, no server-side disconnect hook needed
+- **Global messages stream**: Console queries full history via XRANGE
+- **Separate Redis connections**: XREAD BLOCK requires dedicated connection per subscription

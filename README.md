@@ -1,39 +1,41 @@
 # agent-rtc
 
-Real-time communication for inter-agent messaging via AMQP (RabbitMQ).
+Real-time communication for inter-agent messaging via Redis Streams.
 
 ![agent-rtc demo](asset/agent-rtc-demo.gif)
 
 ## What it does
 
-- **Inter-agent messaging**: Multiple Claude Code sessions communicate instantly via RabbitMQ pub/sub
-- **Auto-cleanup**: Agents are automatically removed when sessions end (exclusive auto-delete queues)
+- **Inter-agent messaging**: Multiple Claude Code sessions communicate instantly via Redis Streams
+- **Message history**: All messages are persisted in Redis Streams — full history queryable
+- **Auto-cleanup**: TTL-based presence with periodic sweep removes stale agents
 - **Permission relay**: When an agent needs tool approval, all masters receive the request — first verdict wins
-- **Adaptive feedback**: A TaskCompleted hook triggers an in-session agent that improves project tooling
+- **Console**: Web dashboard for monitoring agents, masters, and message history
 
 ## Architecture
 
 ```
-Session A ──stdio→ amqp-channel ──AMQP──▶ RabbitMQ ◀──AMQP── amqp-channel ←stdio── Session B
+Session A ──stdio→ redis-channel ──Redis Streams──▶ Redis ◀── redis-channel ←stdio── Session B
+                                                      │
+                                                   Console
+                                                (localhost:3001)
 ```
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design.
 
 ## Prerequisites
 
-RabbitMQ with management plugin:
+Redis:
 
 ```bash
-docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:management
+docker compose up -d
 ```
-
-Management UI: http://localhost:15672 (guest/guest)
 
 ## Quick Start
 
 ### Using npx (recommended)
 
-No installation needed — just add to your project's `.mcp.json`:
+Add to your project's `.mcp.json`:
 
 ```json
 {
@@ -42,7 +44,7 @@ No installation needed — just add to your project's `.mcp.json`:
       "command": "npx",
       "args": ["-y", "agent-rtc"],
       "env": {
-        "AMQP_URL": "amqp://localhost",
+        "REDIS_URL": "redis://localhost:6379",
         "AGENT_NAME": "My Agent",
         "IS_MASTER": "false"
       }
@@ -73,9 +75,9 @@ Add to `.mcp.json`:
   "mcpServers": {
     "agent-rtc": {
       "command": "node",
-      "args": ["/path/to/agent-rtc/dist/amqp-channel.js"],
+      "args": ["/path/to/agent-rtc/dist/redis-channel.js"],
       "env": {
-        "AMQP_URL": "amqp://localhost",
+        "REDIS_URL": "redis://localhost:6379",
         "AGENT_NAME": "My Agent",
         "IS_MASTER": "false"
       }
@@ -84,16 +86,23 @@ Add to `.mcp.json`:
 }
 ```
 
+### Console
+
+```bash
+cd console
+npm install
+npm run dev
+```
+
+Open http://localhost:3001
+
 ## Environment Variables
 
 | Variable | Default | Description |
 |---|---|---|
-| `AMQP_URL` | `amqp://localhost` | RabbitMQ connection URL |
+| `REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
 | `AGENT_NAME` | `Agent` | Display name for this agent |
 | `IS_MASTER` | `false` | Auto-register as master on startup |
-| `RABBITMQ_API` | `http://localhost:15672/api` | Management API URL |
-| `RABBITMQ_USER` | `guest` | Management API username |
-| `RABBITMQ_PASS` | `guest` | Management API password |
 
 ## MCP Tools
 
@@ -109,9 +118,9 @@ Add to `.mcp.json`:
 
 - **Runtime**: Node.js
 - **Language**: TypeScript
-- **Transport**: AMQP (RabbitMQ) via amqplib
+- **Transport**: Redis Streams (ioredis)
 - **Protocol**: MCP over stdio (@modelcontextprotocol/sdk)
-- **Broker**: RabbitMQ with management plugin
+- **Console**: Next.js + shadcn/ui + Zustand
 
 ## License
 
