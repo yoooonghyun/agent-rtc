@@ -139,7 +139,7 @@ export function DirectChat({
     <div
       className="flex flex-col"
       style={{
-        height: 420,
+        height: 520,
         background: "#fff",
         borderRadius: 16,
         border: "1px solid var(--grey-100)",
