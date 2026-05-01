@@ -196,90 +196,78 @@ export function AgentDetailView({
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center justify-between mb-2">
                 <span
-                  className="text-base font-semibold"
+                  className="text-sm font-semibold"
                   style={{ color: "var(--fg-primary)" }}
                 >
-                  {detail.displayName}
+                  Agent info
                 </span>
-                <Badge
-                  variant={detail.online ? "default" : "secondary"}
-                  className="text-xs"
-                  style={
-                    detail.online
-                      ? {
-                          background: "var(--success-50)",
-                          color: "var(--success-500)",
-                          border: "none",
-                        }
-                      : {
-                          background: "var(--grey-100)",
-                          color: "var(--fg-tertiary)",
-                          border: "none",
-                        }
-                  }
-                >
-                  {detail.online ? "Online" : "Offline"}
-                </Badge>
-                {detail.isMaster && (
-                  <Badge
-                    variant="default"
-                    className="text-xs"
-                    style={{
-                      background: "var(--toss-blue-50)",
-                      color: "var(--brand)",
-                      border: "none",
-                    }}
-                  >
-                    Master
-                  </Badge>
-                )}
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="ml-auto text-xs"
+                  className="text-xs"
                   style={{ color: "var(--fg-tertiary)" }}
                   onClick={startEditing}
                 >
                   Edit
                 </Button>
               </div>
-              <code
-                className="text-xs px-1.5 py-0.5 rounded-md"
-                style={{
-                  background: "var(--grey-50)",
-                  color: "var(--fg-secondary)",
-                }}
-              >
-                {detail.agentId}
-              </code>
-              {detail.description && (
-                <p
-                  className="text-sm mt-3"
-                  style={{ color: "var(--fg-secondary)" }}
-                >
-                  {detail.description}
-                </p>
-              )}
-              {detail.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-3">
-                  {detail.tags.map((tag) => (
+              <StatRow label="Display name" value={detail.displayName} />
+              <Separator />
+              <StatRow label="Agent ID" value={detail.agentId} />
+              <Separator />
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm" style={{ color: "var(--fg-tertiary)" }}>Status</span>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={detail.online ? "default" : "secondary"}
+                    className="text-xs"
+                    style={
+                      detail.online
+                        ? { background: "var(--success-50)", color: "var(--success-500)", border: "none" }
+                        : { background: "var(--grey-100)", color: "var(--fg-tertiary)", border: "none" }
+                    }
+                  >
+                    {detail.online ? "Online" : "Offline"}
+                  </Badge>
+                  {detail.isMaster && (
                     <Badge
-                      key={tag}
-                      variant="secondary"
-                      className="text-xs px-2 py-0.5"
-                      style={{
-                        background: "var(--grey-50)",
-                        color: "var(--fg-secondary)",
-                        border: "1px solid var(--grey-100)",
-                        fontWeight: 400,
-                      }}
+                      variant="default"
+                      className="text-xs"
+                      style={{ background: "var(--toss-blue-50)", color: "var(--brand)", border: "none" }}
                     >
-                      {tag}
+                      Master
                     </Badge>
-                  ))}
+                  )}
                 </div>
+              </div>
+              <Separator />
+              <StatRow label="Description" value={detail.description || "-"} />
+              {detail.tags.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-sm" style={{ color: "var(--fg-tertiary)" }}>Tags</span>
+                    <div className="flex flex-wrap gap-1.5 justify-end">
+                      {detail.tags.map((tag) => (
+                        <Badge
+                          key={tag}
+                          variant="secondary"
+                          className="text-xs px-2 py-0.5"
+                          style={{
+                            background: "var(--grey-50)",
+                            color: "var(--fg-secondary)",
+                            border: "1px solid var(--grey-100)",
+                            fontWeight: 400,
+                          }}
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
             </>
           )}
