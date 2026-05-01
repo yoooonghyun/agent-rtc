@@ -129,8 +129,39 @@ export function AgentList({ agents, loading, error }: AgentListProps) {
                         {agent.agentId}
                       </code>
                     </TableCell>
-                    <TableCell style={{ color: "var(--fg-primary)" }}>
-                      {agent.displayName}
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <span style={{ color: "var(--fg-primary)" }}>
+                          {agent.displayName}
+                        </span>
+                        {agent.description && (
+                          <span
+                            className="text-xs"
+                            style={{ color: "var(--fg-tertiary)" }}
+                          >
+                            {agent.description}
+                          </span>
+                        )}
+                        {agent.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {agent.tags.map((tag) => (
+                              <Badge
+                                key={tag}
+                                variant="secondary"
+                                className="text-xs px-1.5 py-0"
+                                style={{
+                                  background: "var(--grey-50)",
+                                  color: "var(--fg-secondary)",
+                                  border: "1px solid var(--grey-100)",
+                                  fontWeight: 400,
+                                }}
+                              >
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge

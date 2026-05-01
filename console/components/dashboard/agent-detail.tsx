@@ -149,6 +149,33 @@ export function AgentDetailPanel({
                 >
                   {detail.agentId}
                 </code>
+                {detail.description && (
+                  <p
+                    className="text-sm mt-3"
+                    style={{ color: "var(--fg-secondary)" }}
+                  >
+                    {detail.description}
+                  </p>
+                )}
+                {detail.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {detail.tags.map((tag) => (
+                      <Badge
+                        key={tag}
+                        variant="secondary"
+                        className="text-xs px-2 py-0.5"
+                        style={{
+                          background: "var(--grey-50)",
+                          color: "var(--fg-secondary)",
+                          border: "1px solid var(--grey-100)",
+                          fontWeight: 400,
+                        }}
+                      >
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 

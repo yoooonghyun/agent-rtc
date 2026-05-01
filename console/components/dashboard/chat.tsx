@@ -181,7 +181,7 @@ export function Chat() {
     if (agent) {
       setReplyTarget(agent);
     } else {
-      setReplyTarget({ agentId, displayName, online: true, messages: 0 });
+      setReplyTarget({ agentId, displayName, online: true, messages: 0, description: "", tags: [] });
     }
   }
 

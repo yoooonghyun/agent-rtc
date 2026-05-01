@@ -33,11 +33,19 @@ export async function GET(req: NextRequest) {
           }
           const meta = await redis.hgetall(`agent-rtc:meta:${agentId}`);
           const streamLen = await redis.xlen(`agent-rtc:agent:${agentId}`);
+          let tags: string[] = [];
+          try {
+            tags = meta.tags ? JSON.parse(meta.tags) : [];
+          } catch {
+            tags = [];
+          }
           agents.push({
             agentId,
             displayName: meta.displayName || agentId,
             online,
             messages: streamLen,
+            description: meta.description || "",
+            tags,
           });
         }
         return NextResponse.json(agents);
@@ -112,6 +120,12 @@ export async function GET(req: NextRequest) {
         const streamLen = await redis.xlen(`agent-rtc:agent:${agentId}`);
         const isMaster = (await redis.sismember("agent-rtc:masters", agentId)) === 1;
         const ttl = online ? await redis.ttl(`agent-rtc:presence:${agentId}`) : -1;
+        let detailTags: string[] = [];
+        try {
+          detailTags = meta.tags ? JSON.parse(meta.tags) : [];
+        } catch {
+          detailTags = [];
+        }
         return NextResponse.json({
           agentId,
           displayName: meta.displayName || agentId,
@@ -119,6 +133,8 @@ export async function GET(req: NextRequest) {
           isMaster,
           messageCount: streamLen,
           presenceTtl: ttl,
+          description: meta.description || "",
+          tags: detailTags,
         });
       }
 

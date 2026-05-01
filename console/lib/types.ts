@@ -5,6 +5,8 @@ export interface Agent {
   displayName: string;
   online: boolean;
   messages: number;
+  description: string;
+  tags: string[];
 }
 
 export interface Master {
@@ -37,4 +39,6 @@ export interface AgentDetail {
   isMaster: boolean;
   messageCount: number;
   presenceTtl: number;
+  description: string;
+  tags: string[];
 }
