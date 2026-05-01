@@ -8,12 +8,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import type { Message } from "@/lib/types";
 
 interface MessageTableProps {
@@ -104,24 +98,41 @@ export function MessageTable({ messages, maxRows }: MessageTableProps) {
               </code>
             </TableCell>
             <TableCell
-              className="text-sm max-w-xs"
+              className="text-sm max-w-xs relative"
               style={{ color: "var(--fg-primary)" }}
+              onMouseEnter={(e) => {
+                const cell = e.currentTarget;
+                const tip = cell.querySelector("[data-tip]") as HTMLElement;
+                if (tip) {
+                  const rect = cell.getBoundingClientRect();
+                  const x = e.clientX - rect.left;
+                  tip.style.left = `${x}px`;
+                  tip.style.display = "block";
+                }
+              }}
+              onMouseLeave={(e) => {
+                const tip = e.currentTarget.querySelector("[data-tip]") as HTMLElement;
+                if (tip) tip.style.display = "none";
+              }}
             >
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <span className="block truncate cursor-default">
-                      {truncate(msg.text, 80)}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="bottom"
-                    className="max-w-md whitespace-pre-wrap text-sm"
-                  >
-                    {msg.text}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <span className="block truncate cursor-default">
+                {truncate(msg.text, 80)}
+              </span>
+              {msg.text.length > 80 && (
+                <div
+                  data-tip=""
+                  className="absolute z-50 hidden max-w-md whitespace-pre-wrap text-sm px-3 py-2 rounded-lg"
+                  style={{
+                    top: "calc(100% + 4px)",
+                    background: "var(--fg-primary)",
+                    color: "#fff",
+                    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+                    pointerEvents: "none",
+                  }}
+                >
+                  {msg.text}
+                </div>
+              )}
             </TableCell>
           </TableRow>
         ))}
