@@ -2,13 +2,11 @@
   "mcpServers": {
     "agent-rtc": {
       "command": "node",
-      "args": [
-        "dist/amqp-channel.js"
-      ],
+      "args": ["dist/redis-channel.js"],
       "env": {
-        "AMQP_URL": "amqp://localhost",
+        "REDIS_URL": "redis://localhost:6379",
         "AGENT_NAME": "${AGENT_NAME:-Agent}",
-        "IS_MASTER": "${IS_MASTER:-true}"
+        "IS_MASTER": "${IS_MASTER:-false}"
       }
     }
   }

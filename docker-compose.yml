@@ -1,19 +1,15 @@
 services:
-  rabbitmq:
-    image: rabbitmq:management
+  redis:
+    image: redis:alpine
     ports:
-      - "5672:5672"
-      - "15672:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      - "6379:6379"
     volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
+      - redis-data:/data
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
 volumes:
-  rabbitmq-data:
+  redis-data:
