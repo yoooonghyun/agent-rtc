@@ -43,7 +43,7 @@ function ChatBubble({
         style={{ color: "var(--fg-tertiary)", padding: "0 4px" }}
       >
         {isSent
-          ? CONSOLE_SENDER
+          ? `To ${message.receiverDisplayName || message.receiver}`
           : message.senderDisplayName || message.sender}
       </span>
       <div
