@@ -35,7 +35,7 @@ export function Shell({ children, rightRail }: ShellProps) {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--grey-50)", overflowY: "scroll" }}>
+    <div className="min-h-screen" style={{ background: "var(--grey-50)" }}>
       {/* Top bar */}
       <header
         className="sticky top-0 z-10"
