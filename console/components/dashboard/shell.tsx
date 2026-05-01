@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   Activity,
@@ -11,22 +13,25 @@ import {
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { id: "overview", label: "Overview", icon: BarChart3 },
-  { id: "agents", label: "Agents", icon: Users },
-  { id: "masters", label: "Masters", icon: Shield },
-  { id: "messages", label: "Messages", icon: MessageSquare },
+  { href: "/", label: "Overview", icon: BarChart3 },
+  { href: "/agents", label: "Agents", icon: Users },
+  { href: "/masters", label: "Masters", icon: Shield },
+  { href: "/messages", label: "Messages", icon: MessageSquare },
 ] as const;
 
-export type NavId = (typeof NAV_ITEMS)[number]["id"];
-
 interface ShellProps {
-  activeNav: NavId;
-  onNav: (id: NavId) => void;
   children: React.ReactNode;
   rightRail?: React.ReactNode;
 }
 
-export function Shell({ activeNav, onNav, children, rightRail }: ShellProps) {
+export function Shell({ children, rightRail }: ShellProps) {
+  const pathname = usePathname();
+
+  function isActive(href: string): boolean {
+    if (href === "/") return pathname === "/";
+    return pathname.startsWith(href);
+  }
+
   return (
     <div className="min-h-screen" style={{ background: "var(--grey-50)" }}>
       {/* Top bar */}
@@ -38,20 +43,21 @@ export function Shell({ activeNav, onNav, children, rightRail }: ShellProps) {
           background: "#fff",
         }}
       >
-        <div className="flex items-baseline gap-1.5">
-          <span
-            className="text-[22px] font-extrabold"
-            style={{ color: "var(--brand)", letterSpacing: "-0.04em" }}
-          >
-            agent-rtc
-          </span>
+        <Link href="/" className="flex items-center gap-2 no-underline">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-agentrtc.svg"
+            alt="Agent RTC"
+            height={32}
+            style={{ height: 32, width: "auto" }}
+          />
           <span
             className="text-sm font-semibold"
-            style={{ color: "var(--fg-primary)" }}
+            style={{ color: "var(--fg-tertiary)" }}
           >
             console
           </span>
-        </div>
+        </Link>
         <div className="flex items-center gap-1.5 ml-auto">
           <Activity size={16} style={{ color: "var(--success-500)" }} />
           <span
@@ -75,23 +81,22 @@ export function Shell({ activeNav, onNav, children, rightRail }: ShellProps) {
           <div className="flex flex-col gap-1">
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
-              const active = activeNav === item.id;
+              const active = isActive(item.href);
               return (
-                <button
-                  key={item.id}
-                  onClick={() => onNav(item.id)}
+                <Link
+                  key={item.href}
+                  href={item.href}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-[10px] text-sm font-medium transition-colors cursor-pointer border-none w-full text-left",
+                    "flex items-center gap-3 px-3 py-2 rounded-[10px] text-sm font-medium transition-colors no-underline",
                   )}
                   style={{
                     background: active ? "var(--toss-blue-50)" : "transparent",
                     color: active ? "var(--brand)" : "var(--fg-secondary)",
-                    fontFamily: "inherit",
                   }}
                 >
                   <Icon size={18} strokeWidth={1.75} />
                   {item.label}
-                </button>
+                </Link>
               );
             })}
           </div>
