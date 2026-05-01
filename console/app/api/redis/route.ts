@@ -75,6 +75,33 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(messages);
       }
 
+      case "chat-messages": {
+        const chatEntries = await redis.xrevrange("agent-rtc:messages", "+", "-", "COUNT", 200);
+        const chatMessages = [];
+        for (const [id, fields] of chatEntries) {
+          const fieldMap: Record<string, string> = {};
+          for (let i = 0; i < fields.length; i += 2) {
+            fieldMap[fields[i]] = fields[i + 1];
+          }
+          const data = fieldMap.data ? JSON.parse(fieldMap.data) : {};
+          if (data.from !== "console" && data.to !== "console") continue;
+          const receiverMeta = data.to
+            ? await redis.hgetall(`agent-rtc:meta:${data.to}`)
+            : {};
+          chatMessages.push({
+            id,
+            type: data.type || "message",
+            sender: data.from || "",
+            senderDisplayName: data.fromDisplayName || data.from || "",
+            receiver: data.to || "",
+            receiverDisplayName: receiverMeta.displayName || data.to || "",
+            text: data.text || "",
+            timestamp: data.timestamp || id.split("-")[0],
+          });
+        }
+        return NextResponse.json(chatMessages);
+      }
+
       case "agent-detail": {
         const agentId = req.nextUrl.searchParams.get("agentId");
         if (!agentId) {

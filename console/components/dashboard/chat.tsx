@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useAgentStore, useMessageStore } from "@/lib/stores";
-import { sendMessage } from "@/lib/api";
+import { useAgentStore } from "@/lib/stores";
+import { sendMessage, fetchChatMessages } from "@/lib/api";
 import { MentionInput } from "./mention-input";
 import type { Message } from "@/lib/types";
 
@@ -70,17 +70,24 @@ function ChatBubble({
 
 export function Chat() {
   const agents = useAgentStore((s) => s.agents);
-  const messages = useMessageStore((s) => s.messages);
-  const fetchMessages = useMessageStore((s) => s.fetch);
+  const [messages, setMessages] = React.useState<Message[]>([]);
   const [sending, setSending] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const prevCountRef = React.useRef(0);
 
-  // Poll messages at a faster rate for chat
+  const pollChat = React.useCallback(async () => {
+    try {
+      const msgs = await fetchChatMessages();
+      setMessages(msgs);
+    } catch { /* ignore */ }
+  }, []);
+
+  // Poll chat messages
   React.useEffect(() => {
-    const id = setInterval(fetchMessages, CHAT_POLL_INTERVAL);
+    pollChat();
+    const id = setInterval(pollChat, CHAT_POLL_INTERVAL);
     return () => clearInterval(id);
-  }, [fetchMessages]);
+  }, [pollChat]);
 
   // Reverse messages (API returns newest first, we want oldest first)
   const sortedMessages = React.useMemo(
@@ -105,7 +112,7 @@ export function Chat() {
     try {
       await sendMessage(targetAgentId, text, CONSOLE_SENDER);
       // Immediately fetch to show the sent message
-      await fetchMessages();
+      await pollChat();
     } catch (err) {
       console.error("Failed to send message:", err);
     } finally {
