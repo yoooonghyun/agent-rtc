@@ -117,7 +117,11 @@ export function MessageTable({ messages, maxRows }: MessageTableProps) {
               className="text-sm max-w-xs"
               style={{ color: "var(--fg-primary)" }}
               onMouseEnter={(e) => {
-                if (msg.text.length <= 80) return;
+                const span = e.currentTarget.querySelector("span");
+                const isOverflowing = span
+                  ? span.scrollWidth > span.clientWidth || msg.text.length > 80
+                  : msg.text.length > 80;
+                if (!isOverflowing) return;
                 const tip = document.getElementById("msg-tooltip");
                 if (tip) {
                   tip.textContent = msg.text;
