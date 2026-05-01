@@ -247,3 +247,52 @@ export async function GET(req: NextRequest) {
     redis.disconnect();
   }
 }
+
+export async function POST(req: NextRequest) {
+  const body = await req.json();
+  const action = body.action;
+
+  if (!action) {
+    return NextResponse.json({ error: "action required" }, { status: 400 });
+  }
+
+  const redis = getRedis();
+
+  try {
+    await redis.connect();
+
+    switch (action) {
+      case "update-meta": {
+        const { agentId, displayName, description, tags } = body as {
+          agentId?: string;
+          displayName?: string;
+          description?: string;
+          tags?: string[];
+        };
+
+        if (!agentId) {
+          return NextResponse.json({ error: "agentId required" }, { status: 400 });
+        }
+
+        const updates: Record<string, string> = {};
+        if (displayName !== undefined) updates.displayName = displayName;
+        if (description !== undefined) updates.description = description;
+        if (tags !== undefined) updates.tags = JSON.stringify(tags);
+
+        if (Object.keys(updates).length > 0) {
+          await redis.hset(`agent-rtc:meta:${agentId}`, updates);
+        }
+
+        return NextResponse.json({ ok: true });
+      }
+
+      default:
+        return NextResponse.json({ error: `unknown action: ${action}` }, { status: 400 });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Redis error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  } finally {
+    redis.disconnect();
+  }
+}

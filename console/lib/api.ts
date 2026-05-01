@@ -57,6 +57,21 @@ export async function fetchStats(): Promise<Stats> {
   return redisFetch<Stats>("stats");
 }
 
+export async function updateAgentMeta(
+  agentId: string,
+  meta: { displayName?: string; description?: string; tags?: string[] },
+): Promise<void> {
+  const res = await fetch("/api/redis", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "update-meta", agentId, ...meta }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Update meta error: ${res.status}`);
+  }
+}
+
 export async function sendMessage(
   targetAgentId: string,
   text: string,

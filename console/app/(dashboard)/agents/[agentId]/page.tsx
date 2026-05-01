@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, useCallback, use } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { AgentDetailView } from "@/components/dashboard/agent-detail";
@@ -18,6 +18,21 @@ export default function AgentDetailPage({
   const [detail, setDetail] = useState<AgentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const loadDetail = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchAgentDetail(agentId);
+      setDetail(data);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch agent detail"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [agentId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,7 +86,7 @@ export default function AgentDetailPage({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <AgentDetailView detail={detail} loading={loading} error={error} />
+        <AgentDetailView detail={detail} loading={loading} error={error} onUpdated={loadDetail} />
 
         {detail && (
           <DirectChat
