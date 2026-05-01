@@ -36,3 +36,20 @@ export async function fetchAgentDetail(agentId: string): Promise<AgentDetail> {
 export async function fetchStats(): Promise<Stats> {
   return redisFetch<Stats>("stats");
 }
+
+export async function sendMessage(
+  targetAgentId: string,
+  text: string,
+  senderName: string,
+): Promise<{ ok: boolean; timestamp: string }> {
+  const res = await fetch("/api/redis/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ targetAgentId, text, senderName }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Send error: ${res.status}`);
+  }
+  return res.json();
+}
