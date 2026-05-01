@@ -21,19 +21,25 @@ export async function GET(req: NextRequest) {
     switch (action) {
       case "agents": {
         const agentIds = await redis.smembers("agent-rtc:agents");
-        const agents = await Promise.all(
-          agentIds.map(async (agentId) => {
-            const meta = await redis.hgetall(`agent-rtc:meta:${agentId}`);
-            const online = (await redis.exists(`agent-rtc:presence:${agentId}`)) === 1;
-            const streamLen = await redis.xlen(`agent-rtc:agent:${agentId}`);
-            return {
-              agentId,
-              displayName: meta.displayName || agentId,
-              online,
-              messages: streamLen,
-            };
-          })
-        );
+        const agents = [];
+        for (const agentId of agentIds) {
+          const online = (await redis.exists(`agent-rtc:presence:${agentId}`)) === 1;
+          if (!online) {
+            // Sweep stale agent
+            await redis.srem("agent-rtc:agents", agentId);
+            await redis.del(`agent-rtc:meta:${agentId}`);
+            await redis.srem("agent-rtc:masters", agentId);
+            continue;
+          }
+          const meta = await redis.hgetall(`agent-rtc:meta:${agentId}`);
+          const streamLen = await redis.xlen(`agent-rtc:agent:${agentId}`);
+          agents.push({
+            agentId,
+            displayName: meta.displayName || agentId,
+            online,
+            messages: streamLen,
+          });
+        }
         return NextResponse.json(agents);
       }
 
