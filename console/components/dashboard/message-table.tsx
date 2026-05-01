@@ -8,6 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ZIndex } from "@/lib/z-index";
 import type { Message } from "@/lib/types";
 
 interface MessageTableProps {
@@ -52,7 +53,7 @@ export function MessageTable({ messages, maxRows }: MessageTableProps) {
       style={{
         display: "none",
         position: "fixed",
-        zIndex: 9999,
+        zIndex: ZIndex.tooltip,
         maxWidth: 400,
         background: "var(--fg-primary)",
         color: "#fff",

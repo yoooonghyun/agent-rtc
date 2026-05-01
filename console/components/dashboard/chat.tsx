@@ -3,6 +3,7 @@
 import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import { useAgentStore } from "@/lib/stores";
+import { ZIndex } from "@/lib/z-index";
 import { sendMessage, fetchChatMessages } from "@/lib/api";
 import { MentionInput } from "./mention-input";
 import type { Agent, Message } from "@/lib/types";
@@ -264,15 +265,16 @@ export function Chat() {
 
           {filterOpen && (
             <div
-              className="absolute top-full left-0 mt-1 py-1 z-20"
+              className="absolute top-full left-0 mt-1 py-1"
               style={{
+                zIndex: ZIndex.dropdown,
                 background: "#fff",
                 borderRadius: 12,
                 boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)",
                 border: "1px solid var(--grey-100)",
                 minWidth: 200,
                 maxHeight: 280,
-                overflowY: "auto",
+                overflowY: "auto" as const,
               }}
             >
               <label

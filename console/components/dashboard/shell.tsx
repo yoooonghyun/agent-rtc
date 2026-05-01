@@ -12,6 +12,7 @@ import {
   BarChart3,
   Send,
 } from "lucide-react";
+import { ZIndex } from "@/lib/z-index";
 
 const NAV_ITEMS = [
   { href: "/chat", label: "Chat", icon: Send },
@@ -38,11 +39,12 @@ export function Shell({ children, rightRail }: ShellProps) {
     <div className="min-h-screen" style={{ background: "var(--grey-50)" }}>
       {/* Top bar */}
       <header
-        className="sticky top-0 z-10"
+        className="sticky top-0"
         style={{
           height: 64,
           borderBottom: "1px solid var(--grey-100)",
           background: "#fff",
+          zIndex: ZIndex.sticky,
         }}
       >
         <div
