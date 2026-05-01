@@ -97,6 +97,8 @@ export function Chat() {
   const [sending, setSending] = React.useState(false);
   const [replyTarget, setReplyTarget] = React.useState<Agent | null>(null);
   const [selectedAgentIds, setSelectedAgentIds] = React.useState<Set<string>>(new Set());
+  const [filterOpen, setFilterOpen] = React.useState(false);
+  const filterRef = React.useRef<HTMLDivElement>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const prevCountRef = React.useRef(0);
 
@@ -126,6 +128,16 @@ export function Chat() {
       setSelectedAgentIds(new Set());
     }
   }
+
+  React.useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const pollChat = React.useCallback(async () => {
     try {
@@ -199,63 +211,104 @@ export function Chat() {
     >
       {/* Header */}
       <div
-        className="shrink-0"
-        style={{ borderBottom: "1px solid var(--grey-100)" }}
+        className="flex items-center px-5 gap-3 shrink-0"
+        style={{
+          height: 56,
+          borderBottom: "1px solid var(--grey-100)",
+        }}
       >
-        <div
-          className="flex items-center px-5 gap-3"
-          style={{ height: 56 }}
+        <h2
+          className="text-base font-semibold shrink-0"
+          style={{ color: "var(--fg-primary)" }}
         >
-          <h2
-            className="text-base font-semibold shrink-0"
-            style={{ color: "var(--fg-primary)" }}
+          Chat
+        </h2>
+
+        {/* Filter dropdown */}
+        <div className="relative" ref={filterRef}>
+          <button
+            onClick={() => setFilterOpen((v) => !v)}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+            style={{
+              background: "var(--grey-50)",
+              color: "var(--fg-secondary)",
+              border: "1px solid var(--grey-100)",
+            }}
           >
-            Chat
-          </h2>
-          <span
-            className="text-xs"
-            style={{ color: "var(--fg-tertiary)" }}
-          >
-            {agents.filter((a) => a.online).length} agents online
-          </span>
-        </div>
-        <div
-          className="flex items-center gap-3 px-5 pb-3 overflow-x-auto"
-        >
-          <label
-            className="flex items-center gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
-            style={{ color: "var(--fg-secondary)" }}
-          >
-            <input
-              type="checkbox"
-              checked={isAllSelected}
-              onChange={toggleAll}
-              className="accent-[var(--brand)]"
-              style={{ width: 14, height: 14 }}
-            />
-            All
-          </label>
-          {agents
-            .filter((a) => a.online)
-            .map((agent) => {
-              const checked = isAllSelected || selectedAgentIds.has(agent.agentId);
-              return (
-                <label
-                  key={agent.agentId}
-                  className="flex items-center gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
-                  style={{ color: "var(--fg-secondary)" }}
+            {isAllSelected
+              ? `All agents (${agents.filter((a) => a.online).length})`
+              : `${selectedAgentIds.size} agent${selectedAgentIds.size !== 1 ? "s" : ""} selected`}
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ marginLeft: 2 }}>
+              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+
+          {filterOpen && (
+            <div
+              className="absolute top-full left-0 mt-1 py-1 z-20"
+              style={{
+                background: "#fff",
+                borderRadius: 12,
+                boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)",
+                border: "1px solid var(--grey-100)",
+                minWidth: 200,
+                maxHeight: 280,
+                overflowY: "auto",
+              }}
+            >
+              <label
+                className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-[var(--grey-50)] transition-colors"
+              >
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  onChange={toggleAll}
+                  className="accent-[var(--brand)]"
+                  style={{ width: 14, height: 14 }}
+                />
+                <span
+                  className="text-sm font-medium"
+                  style={{ color: "var(--fg-primary)" }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleAgentFilter(agent.agentId)}
-                    className="accent-[var(--brand)]"
-                    style={{ width: 14, height: 14 }}
-                  />
-                  {agent.displayName}
-                </label>
-              );
-            })}
+                  All
+                </span>
+              </label>
+              <div style={{ height: 1, background: "var(--grey-100)", margin: "2px 0" }} />
+              {agents
+                .filter((a) => a.online)
+                .map((agent) => {
+                  const checked = isAllSelected || selectedAgentIds.has(agent.agentId);
+                  return (
+                    <label
+                      key={agent.agentId}
+                      className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-[var(--grey-50)] transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleAgentFilter(agent.agentId)}
+                        className="accent-[var(--brand)]"
+                        style={{ width: 14, height: 14 }}
+                      />
+                      <span
+                        className="flex items-center gap-2 text-sm"
+                        style={{ color: "var(--fg-primary)" }}
+                      >
+                        <span
+                          className="rounded-full shrink-0"
+                          style={{
+                            width: 6,
+                            height: 6,
+                            background: "var(--success-500)",
+                          }}
+                        />
+                        {agent.displayName}
+                      </span>
+                    </label>
+                  );
+                })}
+            </div>
+          )}
         </div>
       </div>
 
