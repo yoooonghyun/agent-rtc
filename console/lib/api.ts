@@ -1,4 +1,4 @@
-import type { Agent, AgentDetail, Master, Message, Stats } from "./types";
+import type { Agent, AgentDetail, Master, Message, PaginatedMessages, Stats } from "./types";
 
 async function redisFetch<T>(action: string, params?: Record<string, string>): Promise<T> {
   const url = new URL("/api/redis", window.location.origin);
@@ -35,6 +35,18 @@ export async function fetchChatMessages(): Promise<Message[]> {
 
 export async function fetchDirectMessages(agentId: string): Promise<Message[]> {
   return redisFetch<Message[]>("direct-messages", { agentId });
+}
+
+export async function fetchAgentMessages(
+  agentId: string,
+  page: number = 1,
+  pageSize: number = 20,
+): Promise<PaginatedMessages> {
+  return redisFetch<PaginatedMessages>("agent-messages", {
+    agentId,
+    page: String(page),
+    pageSize: String(pageSize),
+  });
 }
 
 export async function fetchAgentDetail(agentId: string): Promise<AgentDetail> {

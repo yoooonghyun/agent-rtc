@@ -30,6 +30,13 @@ export interface Stats {
   messageCount: number;
 }
 
+export interface PaginatedMessages {
+  messages: Message[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 // --- Agent detail types ---
 
 export interface AgentDetail {

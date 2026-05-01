@@ -143,6 +143,63 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(directMessages);
       }
 
+      case "agent-messages": {
+        const agentId = req.nextUrl.searchParams.get("agentId");
+        if (!agentId) {
+          return NextResponse.json({ error: "agentId required" }, { status: 400 });
+        }
+        const page = Math.max(1, Number(req.nextUrl.searchParams.get("page") ?? "1"));
+        const pageSize = Math.max(1, Math.min(100, Number(req.nextUrl.searchParams.get("pageSize") ?? "20")));
+
+        // Fetch all entries to filter by agent, then paginate
+        const allEntries = await redis.xrevrange("agent-rtc:messages", "+", "-");
+        const filtered: Array<{ id: string; fields: string[] }> = [];
+        for (const [id, fields] of allEntries) {
+          const fieldMap: Record<string, string> = {};
+          for (let i = 0; i < fields.length; i += 2) {
+            fieldMap[fields[i]] = fields[i + 1];
+          }
+          const data = fieldMap.data ? JSON.parse(fieldMap.data) : {};
+          if (data.from === agentId || data.to === agentId) {
+            filtered.push({ id, fields });
+          }
+        }
+
+        const total = filtered.length;
+        const start = (page - 1) * pageSize;
+        const slice = filtered.slice(start, start + pageSize);
+
+        const agentMessages = await Promise.all(
+          slice.map(async ({ id, fields }) => {
+            const fieldMap: Record<string, string> = {};
+            for (let i = 0; i < fields.length; i += 2) {
+              fieldMap[fields[i]] = fields[i + 1];
+            }
+            const data = fieldMap.data ? JSON.parse(fieldMap.data) : {};
+            const receiverMeta = data.to
+              ? await redis.hgetall(`agent-rtc:meta:${data.to}`)
+              : {};
+            return {
+              id,
+              type: data.type || "message",
+              sender: data.from || "",
+              senderDisplayName: data.fromDisplayName || data.from || "",
+              receiver: data.to || "",
+              receiverDisplayName: receiverMeta.displayName || data.to || "",
+              text: data.text || "",
+              timestamp: data.timestamp || id.split("-")[0],
+            };
+          })
+        );
+
+        return NextResponse.json({
+          messages: agentMessages,
+          total,
+          page,
+          pageSize,
+        });
+      }
+
       case "agent-detail": {
         const agentId = req.nextUrl.searchParams.get("agentId");
         if (!agentId) {
