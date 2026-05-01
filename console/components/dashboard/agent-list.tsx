@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -16,9 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AgentDetailPanel } from "@/components/dashboard/agent-detail";
-import type { Agent, AgentDetail } from "@/lib/types";
-import { fetchAgentDetail } from "@/lib/api";
+import type { Agent } from "@/lib/types";
 
 interface AgentListProps {
   agents: Agent[];
@@ -27,98 +25,56 @@ interface AgentListProps {
 }
 
 export function AgentList({ agents, loading, error }: AgentListProps) {
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<AgentDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
-
-  const handleRowClick = useCallback(async (agentId: string) => {
-    if (selectedAgentId === agentId) {
-      // Toggle off if same row clicked
-      setSelectedAgentId(null);
-      setDetail(null);
-      return;
-    }
-
-    setSelectedAgentId(agentId);
-    setDetail(null);
-    setDetailLoading(true);
-    setDetailError(null);
-
-    try {
-      const data = await fetchAgentDetail(agentId);
-      setDetail(data);
-    } catch (err) {
-      setDetailError(
-        err instanceof Error ? err.message : "Failed to fetch agent detail"
-      );
-    } finally {
-      setDetailLoading(false);
-    }
-  }, [selectedAgentId]);
-
-  const handleClose = useCallback(() => {
-    setSelectedAgentId(null);
-    setDetail(null);
-    setDetailError(null);
-  }, []);
-
   return (
-    <>
-      <Card
-        style={{
-          borderRadius: 16,
-          border: "1px solid var(--grey-100)",
-          background: "#fff",
-        }}
-      >
-        <CardHeader>
-          <CardTitle
-            className="text-base font-semibold"
-            style={{ color: "var(--fg-primary)" }}
-          >
-            Agents
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <p className="text-sm" style={{ color: "var(--up-500)" }}>
-              {error}
-            </p>
-          )}
-          {loading && agents.length === 0 && (
-            <p className="text-sm" style={{ color: "var(--fg-tertiary)" }}>
-              Loading agents...
-            </p>
-          )}
-          {!loading && !error && agents.length === 0 && (
-            <p className="text-sm" style={{ color: "var(--fg-tertiary)" }}>
-              No agents found
-            </p>
-          )}
-          {agents.length > 0 && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Agent ID</TableHead>
-                  <TableHead>Display name</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Messages</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {agents.map((agent) => (
-                  <TableRow
-                    key={agent.agentId}
-                    onClick={() => handleRowClick(agent.agentId)}
-                    className="cursor-pointer"
-                    style={
-                      selectedAgentId === agent.agentId
-                        ? { background: "var(--grey-50)" }
-                        : undefined
-                    }
-                  >
-                    <TableCell>
+    <Card
+      style={{
+        borderRadius: 16,
+        border: "1px solid var(--grey-100)",
+        background: "#fff",
+      }}
+    >
+      <CardHeader>
+        <CardTitle
+          className="text-base font-semibold"
+          style={{ color: "var(--fg-primary)" }}
+        >
+          Agents
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {error && (
+          <p className="text-sm" style={{ color: "var(--up-500)" }}>
+            {error}
+          </p>
+        )}
+        {loading && agents.length === 0 && (
+          <p className="text-sm" style={{ color: "var(--fg-tertiary)" }}>
+            Loading agents...
+          </p>
+        )}
+        {!loading && !error && agents.length === 0 && (
+          <p className="text-sm" style={{ color: "var(--fg-tertiary)" }}>
+            No agents found
+          </p>
+        )}
+        {agents.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Agent ID</TableHead>
+                <TableHead>Display name</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Messages</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {agents.map((agent) => (
+                <TableRow key={agent.agentId} className="cursor-pointer">
+                  <TableCell>
+                    <Link
+                      href={`/agents/${agent.agentId}`}
+                      className="block"
+                    >
                       <code
                         className="text-xs px-1.5 py-0.5 rounded-md"
                         style={{
@@ -128,8 +84,13 @@ export function AgentList({ agents, loading, error }: AgentListProps) {
                       >
                         {agent.agentId}
                       </code>
-                    </TableCell>
-                    <TableCell>
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <Link
+                      href={`/agents/${agent.agentId}`}
+                      className="block"
+                    >
                       <div className="flex flex-col gap-1">
                         <span style={{ color: "var(--fg-primary)" }}>
                           {agent.displayName}
@@ -162,8 +123,13 @@ export function AgentList({ agents, loading, error }: AgentListProps) {
                           </div>
                         )}
                       </div>
-                    </TableCell>
-                    <TableCell>
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <Link
+                      href={`/agents/${agent.agentId}`}
+                      className="block"
+                    >
                       <Badge
                         variant={agent.online ? "default" : "secondary"}
                         className="text-xs"
@@ -183,30 +149,25 @@ export function AgentList({ agents, loading, error }: AgentListProps) {
                       >
                         {agent.online ? "Online" : "Offline"}
                       </Badge>
-                    </TableCell>
-                    <TableCell
-                      className="text-right tabular-nums"
-                      style={{ color: "var(--fg-secondary)" }}
+                    </Link>
+                  </TableCell>
+                  <TableCell
+                    className="text-right tabular-nums"
+                    style={{ color: "var(--fg-secondary)" }}
+                  >
+                    <Link
+                      href={`/agents/${agent.agentId}`}
+                      className="block"
                     >
                       {agent.messages}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Agent detail slide-over panel */}
-      {selectedAgentId && (
-        <AgentDetailPanel
-          detail={detail}
-          loading={detailLoading}
-          error={detailError}
-          onClose={handleClose}
-        />
-      )}
-    </>
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 }
