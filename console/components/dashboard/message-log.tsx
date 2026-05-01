@@ -20,12 +20,13 @@ interface MessageLogProps {
   messages: Message[];
 }
 
-function formatTime(iso: string): string {
+function formatTime(ts: string): string {
   try {
-    const d = new Date(iso);
+    const num = Number(ts);
+    const d = isNaN(num) ? new Date(ts) : new Date(num);
     return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   } catch {
-    return iso;
+    return ts;
   }
 }
 
@@ -61,8 +62,9 @@ export function MessageLog({ messages }: MessageLogProps) {
             <TableHeader>
               <TableRow>
                 <TableHead>Time</TableHead>
-                <TableHead>Sender</TableHead>
-                <TableHead>Receiver</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>From</TableHead>
+                <TableHead>To</TableHead>
                 <TableHead>Message</TableHead>
               </TableRow>
             </TableHeader>
@@ -80,10 +82,21 @@ export function MessageLog({ messages }: MessageLogProps) {
                       className="text-xs px-1.5 py-0.5 rounded-md"
                       style={{
                         background: "var(--grey-50)",
+                        color: "var(--fg-tertiary)",
+                      }}
+                    >
+                      {msg.type}
+                    </code>
+                  </TableCell>
+                  <TableCell>
+                    <code
+                      className="text-xs px-1.5 py-0.5 rounded-md"
+                      style={{
+                        background: "var(--grey-50)",
                         color: "var(--fg-secondary)",
                       }}
                     >
-                      {msg.sender}
+                      {msg.senderDisplayName || msg.sender}
                     </code>
                   </TableCell>
                   <TableCell>

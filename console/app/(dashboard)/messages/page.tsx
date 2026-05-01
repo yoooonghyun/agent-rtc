@@ -32,7 +32,7 @@ export default function MessagesPage() {
           Messages
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--fg-tertiary)" }}>
-          Message log and queue statistics
+          Message log and stream statistics
         </p>
       </div>
 
@@ -50,12 +50,11 @@ export default function MessagesPage() {
           style={{ color: "var(--brand)" }}
         />
         <p className="text-sm" style={{ color: "var(--fg-secondary)" }}>
-          Message log shows messages from the current browser session only.
-          Historical messages are not persisted.
+          Message log shows the last 100 messages from the Redis stream.
         </p>
       </div>
 
-      {/* Queue message stats per agent */}
+      {/* Stream stats per agent */}
       <Card
         style={{
           borderRadius: 16,
@@ -68,7 +67,7 @@ export default function MessagesPage() {
             className="text-base font-semibold"
             style={{ color: "var(--fg-primary)" }}
           >
-            Queue stats by agent
+            Stream stats by agent
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -81,8 +80,7 @@ export default function MessagesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Agent</TableHead>
-                  <TableHead className="text-right">Queued messages</TableHead>
-                  <TableHead className="text-right">Consumers</TableHead>
+                  <TableHead className="text-right">Messages in stream</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -111,12 +109,6 @@ export default function MessagesPage() {
                     >
                       {agent.messages}
                     </TableCell>
-                    <TableCell
-                      className="text-right tabular-nums"
-                      style={{ color: "var(--fg-secondary)" }}
-                    >
-                      {agent.consumers}
-                    </TableCell>
                     <TableCell>
                       <span
                         className="text-xs font-medium"
@@ -137,7 +129,7 @@ export default function MessagesPage() {
         </CardContent>
       </Card>
 
-      {/* Session message log */}
+      {/* Message log from Redis stream */}
       <MessageLog messages={messages} />
     </div>
   );

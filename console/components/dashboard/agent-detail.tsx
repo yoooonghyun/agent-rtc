@@ -18,17 +18,6 @@ interface AgentDetailPanelProps {
   onClose: () => void;
 }
 
-function formatBytes(bytes: number | null): string {
-  if (bytes === null) return "Unknown";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatRate(rate: number): string {
-  return `${rate.toFixed(1)} msg/s`;
-}
-
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between py-2">
@@ -137,6 +126,19 @@ export function AgentDetailPanel({
                   >
                     {detail.online ? "Online" : "Offline"}
                   </Badge>
+                  {detail.isMaster && (
+                    <Badge
+                      variant="default"
+                      className="text-xs"
+                      style={{
+                        background: "var(--toss-blue-50)",
+                        color: "var(--brand)",
+                        border: "none",
+                      }}
+                    >
+                      Master
+                    </Badge>
+                  )}
                 </div>
                 <code
                   className="text-xs px-1.5 py-0.5 rounded-md"
@@ -150,7 +152,7 @@ export function AgentDetailPanel({
               </CardContent>
             </Card>
 
-            {/* Queue stats */}
+            {/* Stats */}
             <Card
               style={{
                 borderRadius: 16,
@@ -163,162 +165,27 @@ export function AgentDetailPanel({
                   className="text-sm font-semibold"
                   style={{ color: "var(--fg-primary)" }}
                 >
-                  Queue stats
+                  Stream stats
                 </CardTitle>
               </CardHeader>
               <CardContent className="pb-5">
                 <StatRow
-                  label="Consumers"
-                  value={String(detail.consumers)}
+                  label="Messages in stream"
+                  value={String(detail.messageCount)}
                 />
                 <Separator />
                 <StatRow
-                  label="Messages ready"
-                  value={String(detail.messagesReady)}
+                  label="Presence status"
+                  value={detail.online ? "Online" : "Offline"}
                 />
-                <Separator />
-                <StatRow
-                  label="Messages unacknowledged"
-                  value={String(detail.messagesUnacknowledged)}
-                />
-                <Separator />
-                <StatRow
-                  label="Publish rate"
-                  value={formatRate(detail.publishRate)}
-                />
-                <Separator />
-                <StatRow
-                  label="Deliver rate"
-                  value={formatRate(detail.deliverRate)}
-                />
-                <Separator />
-                <StatRow
-                  label="Memory"
-                  value={formatBytes(detail.memory)}
-                />
-                <Separator />
-                <StatRow label="Queue state" value={detail.state} />
-              </CardContent>
-            </Card>
-
-            {/* Connections */}
-            <Card
-              style={{
-                borderRadius: 16,
-                border: "1px solid var(--grey-100)",
-                background: "#fff",
-              }}
-            >
-              <CardHeader className="pb-2">
-                <CardTitle
-                  className="text-sm font-semibold"
-                  style={{ color: "var(--fg-primary)" }}
-                >
-                  Connections
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pb-5">
-                {detail.connections.length === 0 ? (
-                  <p
-                    className="text-sm"
-                    style={{ color: "var(--fg-tertiary)" }}
-                  >
-                    No connections
-                  </p>
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    {detail.connections.map((conn, idx) => (
-                      <div
-                        key={conn.consumerTag || idx}
-                        className="rounded-lg p-3"
-                        style={{
-                          background: "var(--grey-50)",
-                          border: "1px solid var(--grey-100)",
-                        }}
-                      >
-                        <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center justify-between">
-                            <span
-                              className="text-xs"
-                              style={{ color: "var(--fg-tertiary)" }}
-                            >
-                              Consumer tag
-                            </span>
-                            <code
-                              className="text-xs"
-                              style={{ color: "var(--fg-secondary)" }}
-                            >
-                              {conn.consumerTag}
-                            </code>
-                          </div>
-                          {conn.channelDetails && (
-                            <>
-                              <div className="flex items-center justify-between">
-                                <span
-                                  className="text-xs"
-                                  style={{ color: "var(--fg-tertiary)" }}
-                                >
-                                  Connection
-                                </span>
-                                <code
-                                  className="text-xs"
-                                  style={{ color: "var(--fg-secondary)" }}
-                                >
-                                  {conn.channelDetails.connectionName}
-                                </code>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <span
-                                  className="text-xs"
-                                  style={{ color: "var(--fg-tertiary)" }}
-                                >
-                                  Channel
-                                </span>
-                                <span
-                                  className="text-xs tabular-nums"
-                                  style={{ color: "var(--fg-secondary)" }}
-                                >
-                                  {conn.channelDetails.channelNumber}
-                                </span>
-                              </div>
-                            </>
-                          )}
-                          {conn.connectedAt && (
-                            <div className="flex items-center justify-between">
-                              <span
-                                className="text-xs"
-                                style={{ color: "var(--fg-tertiary)" }}
-                              >
-                                Connected at
-                              </span>
-                              <span
-                                className="text-xs"
-                                style={{ color: "var(--fg-secondary)" }}
-                              >
-                                {conn.connectedAt}
-                              </span>
-                            </div>
-                          )}
-                          {conn.channelCount !== null && (
-                            <div className="flex items-center justify-between">
-                              <span
-                                className="text-xs"
-                                style={{ color: "var(--fg-tertiary)" }}
-                              >
-                                Channels
-                              </span>
-                              <span
-                                className="text-xs tabular-nums"
-                                style={{ color: "var(--fg-secondary)" }}
-                              >
-                                {conn.channelCount}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                {detail.online && detail.presenceTtl > 0 && (
+                  <>
+                    <Separator />
+                    <StatRow
+                      label="Presence TTL"
+                      value={`${detail.presenceTtl}s`}
+                    />
+                  </>
                 )}
               </CardContent>
             </Card>

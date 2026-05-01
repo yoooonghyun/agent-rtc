@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Agent, Master, Message, Stats } from "./types";
-import { fetchAgents, fetchMasters } from "./api";
+import { fetchAgents, fetchMasters, fetchMessages } from "./api";
 
 // --- Agent store ---
 
@@ -56,21 +56,31 @@ export const useMasterStore = create<MasterStore>((set) => ({
   },
 }));
 
-// --- Message store (placeholder — messages from a future API or local tracking) ---
+// --- Message store (now fetches from Redis stream) ---
 
 interface MessageStore {
   messages: Message[];
-  addMessage: (msg: Message) => void;
-  clear: () => void;
+  loading: boolean;
+  error: string | null;
+  fetch: () => Promise<void>;
 }
 
 export const useMessageStore = create<MessageStore>((set) => ({
   messages: [],
-  addMessage: (msg) =>
-    set((state) => ({
-      messages: [msg, ...state.messages].slice(0, 100),
-    })),
-  clear: () => set({ messages: [] }),
+  loading: false,
+  error: null,
+  fetch: async () => {
+    set({ loading: true, error: null });
+    try {
+      const messages = await fetchMessages();
+      set({ messages, loading: false });
+    } catch (err) {
+      set({
+        error: err instanceof Error ? err.message : "Failed to fetch messages",
+        loading: false,
+      });
+    }
+  },
 }));
 
 // --- Derived stats ---

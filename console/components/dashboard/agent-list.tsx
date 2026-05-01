@@ -103,8 +103,7 @@ export function AgentList({ agents, loading, error }: AgentListProps) {
                   <TableHead>Agent ID</TableHead>
                   <TableHead>Display name</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Consumers</TableHead>
-                  <TableHead className="text-right">Queued</TableHead>
+                  <TableHead className="text-right">Messages</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -153,12 +152,6 @@ export function AgentList({ agents, loading, error }: AgentListProps) {
                       >
                         {agent.online ? "Online" : "Offline"}
                       </Badge>
-                    </TableCell>
-                    <TableCell
-                      className="text-right tabular-nums"
-                      style={{ color: "var(--fg-secondary)" }}
-                    >
-                      {agent.consumers}
                     </TableCell>
                     <TableCell
                       className="text-right tabular-nums"

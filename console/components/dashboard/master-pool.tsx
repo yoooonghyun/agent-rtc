@@ -69,8 +69,6 @@ export function MasterPool({
             <TableHeader>
               <TableRow>
                 <TableHead>Agent ID</TableHead>
-                <TableHead>Routing key</TableHead>
-                <TableHead>Destination</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -89,20 +87,6 @@ export function MasterPool({
                     >
                       {master.agentId}
                     </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <code
-                      className="text-xs px-1.5 py-0.5 rounded-md"
-                      style={{
-                        background: "var(--grey-50)",
-                        color: "var(--fg-secondary)",
-                      }}
-                    >
-                      {master.routingKey}
-                    </code>
-                  </TableCell>
-                  <TableCell style={{ color: "var(--fg-secondary)" }}>
-                    {master.destination}
                   </TableCell>
                   <TableCell className="text-right">
                     {onRemove && (
