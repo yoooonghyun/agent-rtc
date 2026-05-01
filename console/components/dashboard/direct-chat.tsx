@@ -140,7 +140,7 @@ export function DirectChat({
     <Card
       className="flex flex-col overflow-hidden"
       style={{
-        minHeight: 400,
+        height: 500,
         borderRadius: 16,
         border: "1px solid var(--grey-100)",
         background: "#fff",
