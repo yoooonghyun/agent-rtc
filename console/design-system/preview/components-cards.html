@@ -1,0 +1,26 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Cards · Generic</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:20px; background:var(--grey-50); font-family: var(--font-sans); }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+  .card { background:#fff; border:1px solid var(--grey-100); border-radius:16px; padding:18px 20px; }
+  .label { color: var(--fg-tertiary); font-size:12px; font-weight:600; }
+  .metric { font-size:28px; font-weight:700; margin-top:4px; font-variant-numeric: tabular-nums; }
+  .delta { font-size:12px; font-weight:600; margin-top:4px; }
+  .ok { color: var(--success-500); }
+</style></head>
+<body>
+<div class="grid">
+  <div class="card">
+    <div class="label">활성 사용자</div>
+    <div class="metric">12,438</div>
+    <div class="delta ok">+184 this week</div>
+  </div>
+  <div class="card">
+    <div class="label">전환율</div>
+    <div class="metric">3.20%</div>
+    <div class="delta ok">+0.42pt vs last week</div>
+  </div>
+</div>
+</body></html>

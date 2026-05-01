@@ -1,0 +1,35 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Color · Status</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:20px; background:#fff; font-family: var(--font-sans); }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+  .card { border-radius:14px; padding:14px 16px; display:flex; flex-direction:column; gap:6px; color:#fff; }
+  .head { font-size:11px; font-weight:600; opacity:.95; text-transform:uppercase; letter-spacing:.06em; }
+  .big { font-size:18px; font-weight:700; }
+  .sub { font-size:11px; opacity:.85; font-family: var(--font-mono); }
+</style></head>
+<body>
+<div class="grid">
+  <div class="card" style="background:var(--success-500)">
+    <div class="head">Success</div>
+    <div class="big">Saved</div>
+    <div class="sub">#00C49A</div>
+  </div>
+  <div class="card" style="background:var(--warn-500)">
+    <div class="head">Warning</div>
+    <div class="big">Heads up</div>
+    <div class="sub">#FF9500</div>
+  </div>
+  <div class="card" style="background:var(--up-500)">
+    <div class="head">Error / Destructive</div>
+    <div class="big">Couldn't save</div>
+    <div class="sub">#F04452</div>
+  </div>
+  <div class="card" style="background:var(--brand)">
+    <div class="head">Info</div>
+    <div class="big">FYI</div>
+    <div class="sub">#3182F6</div>
+  </div>
+</div>
+</body></html>

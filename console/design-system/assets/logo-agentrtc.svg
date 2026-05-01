@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 64" width="200" height="64">
+  <g>
+    <rect x="2" y="8" width="48" height="48" rx="12" fill="#3182F6"></rect>
+    <path d="M16.25 16.25 h19.5 a3 3 0 0 1 3 3 v6 a3 3 0 0 1 -3 3 h-6.75 l-3 3.75 -3 -3.75 h-6.75 a3 3 0 0 1 -3 -3 v-6 a3 3 0 0 1 3 -3 z" fill="#FFFFFF"></path>
+    <rect x="17" y="34.25" width="18" height="13.5" rx="3.75" fill="#FFFFFF"></rect>
+    <circle cx="22.25" cy="41" r="1.65" fill="#3182F6"></circle>
+    <circle cx="29.75" cy="41" r="1.65" fill="#3182F6"></circle>
+  </g>
+  <text x="64" y="40" font-family="Pretendard, -apple-system, sans-serif" font-size="26" font-weight="800" fill="#191F28" letter-spacing="-1.2">Agent</text>
+  <text x="143" y="40" font-family="Pretendard, -apple-system, sans-serif" font-size="26" font-weight="800" fill="#3182F6" letter-spacing="-1.2">RTC</text>
+</svg>

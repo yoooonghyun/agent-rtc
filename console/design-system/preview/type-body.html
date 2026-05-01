@@ -1,0 +1,27 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Type · Body & Numbers</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:18px 20px; background:#fff; }
+  .stack { display:flex; flex-direction:column; gap:8px; }
+  .row { display:flex; align-items:baseline; gap:14px; }
+  .meta { width:120px; flex-shrink:0; color: var(--fg-tertiary); font-size:11px; font-family:var(--font-mono); }
+  .nums { display:flex; gap:18px; align-items:baseline; }
+  .num-big { font-size:28px; font-weight:700; font-variant-numeric: tabular-nums; }
+</style></head>
+<body>
+<div class="stack">
+  <div class="row"><div class="meta">body-lg · 17/400</div><div class="body-lg">Easy stock trading just like our money transfer.</div></div>
+  <div class="row"><div class="meta">body · 15/400</div><div class="body">Useful tips and info for better investing.</div></div>
+  <div class="row"><div class="meta">body-sm · 13/400</div><div class="body-sm">No need to download another app.</div></div>
+  <div class="row"><div class="meta">caption · 12/400</div><div class="caption">Last updated 3 minutes ago</div></div>
+  <div class="row"><div class="meta">overline · 11/600</div><div class="overline">Right now on Toss</div></div>
+  <div class="row" style="margin-top:8px;"><div class="meta">price · tnum</div>
+    <div class="nums">
+      <span class="num-big up">▲ 84,200</span>
+      <span class="num-big down">▼ 78,500</span>
+      <span class="num-big flat">— 0</span>
+    </div>
+  </div>
+</div>
+</body></html>

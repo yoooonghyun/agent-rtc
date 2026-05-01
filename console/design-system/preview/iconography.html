@@ -1,0 +1,34 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Iconography</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  body { margin:0; padding:20px; background:#fff; font-family: var(--font-sans); }
+  .grid { display:grid; grid-template-columns: repeat(8, 1fr); gap:10px 6px; }
+  .ic { display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 4px; border-radius:8px; color: var(--fg-secondary); }
+  .ic svg { color: var(--fg-primary); }
+  .ic span { font-size:10px; font-family:var(--font-mono); }
+  .note { color: var(--fg-tertiary); font-size:11px; margin-top:12px; font-family:var(--font-mono); }
+</style></head>
+<body>
+<div class="grid" id="g">
+  <div class="ic"><i data-lucide="home"></i><span>home</span></div>
+  <div class="ic"><i data-lucide="newspaper"></i><span>news</span></div>
+  <div class="ic"><i data-lucide="compass"></i><span>discover</span></div>
+  <div class="ic"><i data-lucide="user"></i><span>account</span></div>
+  <div class="ic"><i data-lucide="search"></i><span>search</span></div>
+  <div class="ic"><i data-lucide="bell"></i><span>bell</span></div>
+  <div class="ic"><i data-lucide="star"></i><span>star</span></div>
+  <div class="ic"><i data-lucide="trending-up"></i><span>up</span></div>
+  <div class="ic"><i data-lucide="trending-down"></i><span>down</span></div>
+  <div class="ic"><i data-lucide="bar-chart-3"></i><span>chart</span></div>
+  <div class="ic"><i data-lucide="wallet"></i><span>wallet</span></div>
+  <div class="ic"><i data-lucide="arrow-up-right"></i><span>buy</span></div>
+  <div class="ic"><i data-lucide="arrow-down-right"></i><span>sell</span></div>
+  <div class="ic"><i data-lucide="settings"></i><span>settings</span></div>
+  <div class="ic"><i data-lucide="filter"></i><span>filter</span></div>
+  <div class="ic"><i data-lucide="info"></i><span>info</span></div>
+</div>
+<div class="note">Lucide @ 1.5px stroke (substitute for proprietary Toss icon set).</div>
+<script>lucide.createIcons({attrs:{'stroke-width':1.75, width:22, height:22}});</script>
+</body></html>
