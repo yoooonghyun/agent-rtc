@@ -85,7 +85,14 @@ export async function GET(req: NextRequest) {
 
       case "chat-messages": {
         const chatLimit = Math.max(1, Math.min(200, Number(req.nextUrl.searchParams.get("limit") ?? "50")));
-        const chatBefore = req.nextUrl.searchParams.get("before") ?? "+";
+        const chatBeforeParam = req.nextUrl.searchParams.get("before");
+        // Make before exclusive by subtracting from sequence
+        let chatBefore = "+";
+        if (chatBeforeParam) {
+          const parts = chatBeforeParam.split("-");
+          const seq = Number(parts[1] ?? 0);
+          chatBefore = seq > 0 ? `${parts[0]}-${seq - 1}` : `${Number(parts[0]) - 1}`;
+        }
         const chatEntries = await redis.xrevrange("agent-rtc:messages", chatBefore, "-");
         const chatMessages = [];
         for (const [id, fields] of chatEntries) {

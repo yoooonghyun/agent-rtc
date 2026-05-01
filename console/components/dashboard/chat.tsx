@@ -157,8 +157,13 @@ export function Chat() {
       const oldestId = messages[messages.length - 1].id;
       const result = await fetchChatMessages(50, oldestId);
       if (result.messages.length > 0) {
-        setMessages((prev) => [...prev, ...result.messages]);
-        setHasMore(result.hasMore);
+        // Deduplicate by id
+        const existingIds = new Set(messages.map((m) => m.id));
+        const newMsgs = result.messages.filter((m) => !existingIds.has(m.id));
+        if (newMsgs.length > 0) {
+          setMessages((prev) => [...prev, ...newMsgs]);
+        }
+        setHasMore(result.hasMore && newMsgs.length > 0);
       } else {
         setHasMore(false);
       }
