@@ -112,7 +112,7 @@ export function AgentDetailView({
   }
 
   return (
-    <div className="flex flex-col gap-5 max-w-xl">
+    <div className="flex flex-col gap-5">
       {/* Identity */}
       <Card
         style={{
