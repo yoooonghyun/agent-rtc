@@ -4,6 +4,7 @@ import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { AgentDetailView } from "@/components/dashboard/agent-detail";
+import { DirectChat } from "@/components/dashboard/direct-chat";
 import { fetchAgentDetail } from "@/lib/api";
 import type { AgentDetail } from "@/lib/types";
 
@@ -69,6 +70,13 @@ export default function AgentDetailPage({
       </div>
 
       <AgentDetailView detail={detail} loading={loading} error={error} />
+
+      {detail && (
+        <DirectChat
+          agentId={agentId}
+          agentDisplayName={detail.displayName}
+        />
+      )}
     </div>
   );
 }

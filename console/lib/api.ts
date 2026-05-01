@@ -33,6 +33,10 @@ export async function fetchChatMessages(): Promise<Message[]> {
   return redisFetch<Message[]>("chat-messages");
 }
 
+export async function fetchDirectMessages(agentId: string): Promise<Message[]> {
+  return redisFetch<Message[]>("direct-messages", { agentId });
+}
+
 export async function fetchAgentDetail(agentId: string): Promise<AgentDetail> {
   return redisFetch<AgentDetail>("agent-detail", { agentId });
 }

@@ -110,6 +110,39 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(chatMessages);
       }
 
+      case "direct-messages": {
+        const agentId = req.nextUrl.searchParams.get("agentId");
+        if (!agentId) {
+          return NextResponse.json({ error: "agentId required" }, { status: 400 });
+        }
+        const directEntries = await redis.xrevrange("agent-rtc:messages", "+", "-", "COUNT", 200);
+        const directMessages = [];
+        for (const [id, fields] of directEntries) {
+          const fieldMap: Record<string, string> = {};
+          for (let i = 0; i < fields.length; i += 2) {
+            fieldMap[fields[i]] = fields[i + 1];
+          }
+          const data = fieldMap.data ? JSON.parse(fieldMap.data) : {};
+          const isConsoleToAgent = data.from === "console" && data.to === agentId;
+          const isAgentToConsole = data.from === agentId && data.to === "console";
+          if (!isConsoleToAgent && !isAgentToConsole) continue;
+          const receiverMeta = data.to
+            ? await redis.hgetall(`agent-rtc:meta:${data.to}`)
+            : {};
+          directMessages.push({
+            id,
+            type: data.type || "message",
+            sender: data.from || "",
+            senderDisplayName: data.fromDisplayName || data.from || "",
+            receiver: data.to || "",
+            receiverDisplayName: receiverMeta.displayName || data.to || "",
+            text: data.text || "",
+            timestamp: data.timestamp || id.split("-")[0],
+          });
+        }
+        return NextResponse.json(directMessages);
+      }
+
       case "agent-detail": {
         const agentId = req.nextUrl.searchParams.get("agentId");
         if (!agentId) {
