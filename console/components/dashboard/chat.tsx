@@ -44,7 +44,7 @@ function ChatBubble({
       >
         {isSent
           ? `To ${message.receiverDisplayName || message.receiver}`
-          : message.senderDisplayName || message.sender}
+          : `From ${message.senderDisplayName || message.sender}`}
       </span>
       <div
         className="px-4 py-2.5 text-sm"
