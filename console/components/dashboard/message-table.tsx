@@ -8,6 +8,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { Message } from "@/lib/types";
 
 interface MessageTableProps {
@@ -98,10 +104,24 @@ export function MessageTable({ messages, maxRows }: MessageTableProps) {
               </code>
             </TableCell>
             <TableCell
-              className="text-sm max-w-xs truncate"
+              className="text-sm max-w-xs"
               style={{ color: "var(--fg-primary)" }}
             >
-              {truncate(msg.text, 80)}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <span className="block truncate cursor-default">
+                      {truncate(msg.text, 80)}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="bottom"
+                    className="max-w-md whitespace-pre-wrap text-sm"
+                  >
+                    {msg.text}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </TableCell>
           </TableRow>
         ))}

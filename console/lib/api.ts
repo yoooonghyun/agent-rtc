@@ -29,8 +29,13 @@ export async function fetchMessages(): Promise<Message[]> {
   return redisFetch<Message[]>("messages");
 }
 
-export async function fetchChatMessages(): Promise<Message[]> {
-  return redisFetch<Message[]>("chat-messages");
+export async function fetchChatMessages(
+  limit = 50,
+  before?: string
+): Promise<{ messages: Message[]; hasMore: boolean }> {
+  const params: Record<string, string> = { limit: String(limit) };
+  if (before) params.before = before;
+  return redisFetch<{ messages: Message[]; hasMore: boolean }>("chat-messages", params);
 }
 
 export async function fetchDirectMessages(agentId: string): Promise<Message[]> {

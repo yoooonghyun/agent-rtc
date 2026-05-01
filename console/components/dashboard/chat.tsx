@@ -94,6 +94,8 @@ function ChatBubble({
 export function Chat() {
   const agents = useAgentStore((s) => s.agents);
   const [messages, setMessages] = React.useState<Message[]>([]);
+  const [hasMore, setHasMore] = React.useState(false);
+  const [loadingMore, setLoadingMore] = React.useState(false);
   const [sending, setSending] = React.useState(false);
   const [replyTarget, setReplyTarget] = React.useState<Agent | null>(null);
   const [selectedAgentIds, setSelectedAgentIds] = React.useState<Set<string>>(new Set());
@@ -141,10 +143,27 @@ export function Chat() {
 
   const pollChat = React.useCallback(async () => {
     try {
-      const msgs = await fetchChatMessages();
-      setMessages(msgs);
+      const result = await fetchChatMessages(50);
+      setMessages(result.messages);
+      setHasMore(result.hasMore);
     } catch { /* ignore */ }
   }, []);
+
+  const loadOlder = React.useCallback(async () => {
+    if (loadingMore || !hasMore || messages.length === 0) return;
+    setLoadingMore(true);
+    try {
+      const oldestId = messages[messages.length - 1].id;
+      const result = await fetchChatMessages(50, oldestId);
+      if (result.messages.length > 0) {
+        setMessages((prev) => [...prev, ...result.messages]);
+        setHasMore(result.hasMore);
+      } else {
+        setHasMore(false);
+      }
+    } catch { /* ignore */ }
+    setLoadingMore(false);
+  }, [loadingMore, hasMore, messages]);
 
   // Poll chat messages
   React.useEffect(() => {
@@ -317,7 +336,18 @@ export function Chat() {
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3"
         style={{ minHeight: 0 }}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          if (el.scrollTop === 0 && hasMore) {
+            loadOlder();
+          }
+        }}
       >
+        {loadingMore && (
+          <p className="text-xs text-center" style={{ color: "var(--fg-tertiary)" }}>
+            Loading older messages...
+          </p>
+        )}
         {sortedMessages.length === 0 && (
           <div
             className="flex-1 flex items-center justify-center"

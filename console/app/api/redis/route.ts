@@ -84,9 +84,12 @@ export async function GET(req: NextRequest) {
       }
 
       case "chat-messages": {
-        const chatEntries = await redis.xrevrange("agent-rtc:messages", "+", "-", "COUNT", 200);
+        const chatLimit = Math.max(1, Math.min(200, Number(req.nextUrl.searchParams.get("limit") ?? "50")));
+        const chatBefore = req.nextUrl.searchParams.get("before") ?? "+";
+        const chatEntries = await redis.xrevrange("agent-rtc:messages", chatBefore, "-");
         const chatMessages = [];
         for (const [id, fields] of chatEntries) {
+          if (chatMessages.length >= chatLimit) break;
           const fieldMap: Record<string, string> = {};
           for (let i = 0; i < fields.length; i += 2) {
             fieldMap[fields[i]] = fields[i + 1];
@@ -107,7 +110,8 @@ export async function GET(req: NextRequest) {
             timestamp: data.timestamp || id.split("-")[0],
           });
         }
-        return NextResponse.json(chatMessages);
+        const hasMore = chatEntries.length > chatMessages.length || chatMessages.length === chatLimit;
+        return NextResponse.json({ messages: chatMessages, hasMore });
       }
 
       case "direct-messages": {
