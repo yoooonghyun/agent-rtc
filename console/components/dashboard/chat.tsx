@@ -96,8 +96,27 @@ export function Chat() {
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [sending, setSending] = React.useState(false);
   const [replyTarget, setReplyTarget] = React.useState<Agent | null>(null);
+  const [selectedAgentIds, setSelectedAgentIds] = React.useState<Set<string>>(new Set());
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const prevCountRef = React.useRef(0);
+
+  const isAllSelected = selectedAgentIds.size === 0;
+
+  function toggleAgentFilter(agentId: string) {
+    setSelectedAgentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(agentId)) {
+        next.delete(agentId);
+      } else {
+        next.add(agentId);
+      }
+      return next;
+    });
+  }
+
+  function clearFilter() {
+    setSelectedAgentIds(new Set());
+  }
 
   const pollChat = React.useCallback(async () => {
     try {
@@ -114,10 +133,14 @@ export function Chat() {
   }, [pollChat]);
 
   // Reverse messages (API returns newest first, we want oldest first)
-  const sortedMessages = React.useMemo(
-    () => [...messages].reverse(),
-    [messages],
-  );
+  // Then filter by selected agents
+  const sortedMessages = React.useMemo(() => {
+    const reversed = [...messages].reverse();
+    if (isAllSelected) return reversed;
+    return reversed.filter(
+      (msg) => selectedAgentIds.has(msg.sender) || selectedAgentIds.has(msg.receiver)
+    );
+  }, [messages, selectedAgentIds, isAllSelected]);
 
   // Auto-scroll to bottom on new messages
   React.useEffect(() => {
@@ -166,24 +189,50 @@ export function Chat() {
     >
       {/* Header */}
       <div
-        className="flex items-center px-5 shrink-0"
+        className="flex items-center px-5 gap-3 shrink-0"
         style={{
           height: 56,
           borderBottom: "1px solid var(--grey-100)",
         }}
       >
         <h2
-          className="text-base font-semibold"
+          className="text-base font-semibold shrink-0"
           style={{ color: "var(--fg-primary)" }}
         >
           Chat
         </h2>
-        <span
-          className="text-xs ml-3"
-          style={{ color: "var(--fg-tertiary)" }}
-        >
-          {agents.filter((a) => a.online).length} agents online
-        </span>
+        <div className="flex items-center gap-1.5 overflow-x-auto">
+          <button
+            onClick={clearFilter}
+            className="text-xs font-medium px-3 py-1 rounded-full shrink-0 transition-colors"
+            style={{
+              background: isAllSelected ? "var(--brand)" : "var(--grey-50)",
+              color: isAllSelected ? "#fff" : "var(--fg-secondary)",
+              border: isAllSelected ? "none" : "1px solid var(--grey-100)",
+            }}
+          >
+            All
+          </button>
+          {agents
+            .filter((a) => a.online)
+            .map((agent) => {
+              const active = selectedAgentIds.has(agent.agentId);
+              return (
+                <button
+                  key={agent.agentId}
+                  onClick={() => toggleAgentFilter(agent.agentId)}
+                  className="text-xs font-medium px-3 py-1 rounded-full shrink-0 transition-colors"
+                  style={{
+                    background: active ? "var(--brand)" : "var(--grey-50)",
+                    color: active ? "#fff" : "var(--fg-secondary)",
+                    border: active ? "none" : "1px solid var(--grey-100)",
+                  }}
+                >
+                  {agent.displayName}
+                </button>
+              );
+            })}
+        </div>
       </div>
 
       {/* Messages area */}
