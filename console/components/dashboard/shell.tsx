@@ -14,11 +14,11 @@ import {
 } from "lucide-react";
 
 const NAV_ITEMS = [
+  { href: "/chat", label: "Chat", icon: Send },
   { href: "/", label: "Overview", icon: BarChart3 },
   { href: "/agents", label: "Agents", icon: Users },
   { href: "/masters", label: "Masters", icon: Shield },
   { href: "/messages", label: "Messages", icon: MessageSquare },
-  { href: "/chat", label: "Chat", icon: Send },
 ] as const;
 
 interface ShellProps {
