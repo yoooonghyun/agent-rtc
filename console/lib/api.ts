@@ -49,6 +49,13 @@ export async function fetchAgentMessages(
   });
 }
 
+export async function fetchAllMessages(page = 1, pageSize = 20): Promise<PaginatedMessages> {
+  return redisFetch<PaginatedMessages>("all-messages", {
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+}
+
 export async function fetchAgentDetail(agentId: string): Promise<AgentDetail> {
   return redisFetch<AgentDetail>("agent-detail", { agentId });
 }
