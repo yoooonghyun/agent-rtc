@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { useAgentStore } from "@/lib/stores";
 import { sendMessage, fetchChatMessages } from "@/lib/api";
 import { MentionInput } from "./mention-input";
-import type { Message } from "@/lib/types";
+import type { Agent, Message } from "@/lib/types";
 
 const CONSOLE_SENDER = "Console";
 const CHAT_POLL_INTERVAL = 2000;
@@ -26,13 +26,15 @@ function formatTime(ts: string): string {
 function ChatBubble({
   message,
   isSent,
+  onReply,
 }: {
   message: Message;
   isSent: boolean;
+  onReply?: (agentId: string, displayName: string) => void;
 }) {
   return (
     <div
-      className="flex flex-col gap-1"
+      className="flex flex-col gap-1 group"
       style={{
         alignItems: isSent ? "flex-end" : "flex-start",
         maxWidth: "75%",
@@ -63,12 +65,28 @@ function ChatBubble({
       >
         <ReactMarkdown>{message.text}</ReactMarkdown>
       </div>
-      <span
-        className="text-xs tabular-nums"
-        style={{ color: "var(--fg-tertiary)", padding: "0 4px" }}
-      >
-        {formatTime(message.timestamp)}
-      </span>
+      <div className="flex items-center gap-2" style={{ padding: "0 4px" }}>
+        <span
+          className="text-xs tabular-nums"
+          style={{ color: "var(--fg-tertiary)" }}
+        >
+          {formatTime(message.timestamp)}
+        </span>
+        {!isSent && onReply && (
+          <button
+            onClick={() =>
+              onReply(
+                message.sender,
+                message.senderDisplayName || message.sender
+              )
+            }
+            className="text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ color: "var(--brand)" }}
+          >
+            Reply
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -77,6 +95,7 @@ export function Chat() {
   const agents = useAgentStore((s) => s.agents);
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [sending, setSending] = React.useState(false);
+  const [replyTarget, setReplyTarget] = React.useState<Agent | null>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const prevCountRef = React.useRef(0);
 
@@ -111,6 +130,15 @@ export function Chat() {
       });
     }
   }, [sortedMessages.length]);
+
+  function handleReply(agentId: string, displayName: string) {
+    const agent = agents.find((a) => a.agentId === agentId);
+    if (agent) {
+      setReplyTarget(agent);
+    } else {
+      setReplyTarget({ agentId, displayName, online: true, messages: 0 });
+    }
+  }
 
   async function handleSend(targetAgentId: string, text: string) {
     setSending(true);
@@ -183,6 +211,7 @@ export function Chat() {
               msg.sender === "console" ||
               msg.senderDisplayName === CONSOLE_SENDER
             }
+            onReply={handleReply}
           />
         ))}
       </div>
@@ -190,8 +219,12 @@ export function Chat() {
       {/* Input */}
       <MentionInput
         agents={agents}
-        onSend={handleSend}
+        onSend={(targetAgentId, text) => {
+          handleSend(targetAgentId, text);
+          setReplyTarget(null);
+        }}
         disabled={sending}
+        initialTarget={replyTarget}
       />
     </div>
   );

@@ -9,9 +9,10 @@ interface MentionInputProps {
   agents: Agent[];
   onSend: (targetAgentId: string, text: string) => void;
   disabled?: boolean;
+  initialTarget?: Agent | null;
 }
 
-export function MentionInput({ agents, onSend, disabled }: MentionInputProps) {
+export function MentionInput({ agents, onSend, disabled, initialTarget }: MentionInputProps) {
   const [value, setValue] = React.useState("");
   const [targetAgent, setTargetAgent] = React.useState<Agent | null>(null);
   const [showDropdown, setShowDropdown] = React.useState(false);
@@ -19,6 +20,13 @@ export function MentionInput({ agents, onSend, disabled }: MentionInputProps) {
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (initialTarget) {
+      setTargetAgent(initialTarget);
+      inputRef.current?.focus();
+    }
+  }, [initialTarget]);
 
   const onlineAgents = React.useMemo(
     () => agents.filter((a) => a.online),
