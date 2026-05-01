@@ -189,17 +189,24 @@ export function Chat() {
     );
   }, [messages, selectedAgentIds, isAllSelected]);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom only for new messages (not when loading older)
   React.useEffect(() => {
-    if (sortedMessages.length !== prevCountRef.current) {
-      prevCountRef.current = sortedMessages.length;
-      requestAnimationFrame(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const newCount = sortedMessages.length;
+    const oldCount = prevCountRef.current;
+    if (newCount !== oldCount) {
+      // Only scroll to bottom if not loading older messages
+      if (!loadingMore && scrollRef.current) {
+        const el = scrollRef.current;
+        const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+        if (isNearBottom || oldCount === 0) {
+          requestAnimationFrame(() => {
+            el.scrollTop = el.scrollHeight;
+          });
         }
-      });
+      }
+      prevCountRef.current = newCount;
     }
-  }, [sortedMessages.length]);
+  }, [sortedMessages.length, loadingMore]);
 
   function handleReply(agentId: string, displayName: string) {
     const agent = agents.find((a) => a.agentId === agentId);
