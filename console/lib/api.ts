@@ -1,4 +1,6 @@
 import type { Agent, AgentDetail, Master, Message, PaginatedMessages, Stats } from "./types";
+import type { PermissionRequest } from "./permission";
+import { parsePermissionRequest } from "./permission";
 
 async function redisFetch<T>(action: string, params?: Record<string, string>): Promise<T> {
   const url = new URL("/api/redis", window.location.origin);
@@ -81,6 +83,46 @@ export async function updateAgentMeta(
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `Update meta error: ${res.status}`);
+  }
+}
+
+interface RawPermission {
+  id: string;
+  type: string;
+  from: string;
+  fromDisplayName: string;
+  text: string;
+  timestamp: string;
+}
+
+export async function fetchPermissions(): Promise<PermissionRequest[]> {
+  const raw = await redisFetch<RawPermission[]>("permissions");
+  const parsed: PermissionRequest[] = [];
+  for (const entry of raw) {
+    const req = parsePermissionRequest(
+      entry.from,
+      entry.fromDisplayName,
+      entry.text,
+      entry.timestamp,
+    );
+    if (req) parsed.push(req);
+  }
+  return parsed;
+}
+
+export async function sendPermissionVerdict(
+  agentId: string,
+  requestId: string,
+  allow: boolean,
+): Promise<void> {
+  const res = await fetch("/api/redis", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "permission-verdict", agentId, requestId, allow }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Permission verdict error: ${res.status}`);
   }
 }
 

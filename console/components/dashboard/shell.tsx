@@ -13,6 +13,7 @@ import {
   Send,
 } from "lucide-react";
 import { ZIndex } from "@/lib/z-index";
+import { PermissionBanner } from "./permission-banner";
 
 const NAV_ITEMS = [
   { href: "/chat", label: "Chat", icon: Send },
@@ -107,6 +108,7 @@ export function Shell({ children, rightRail }: ShellProps) {
 
         {/* Main canvas */}
         <main className="flex-1 min-w-0 py-5 px-7">
+          <PermissionBanner />
           {children}
         </main>
 

@@ -280,6 +280,32 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ agentCount, masterCount, messageCount });
       }
 
+      case "permissions": {
+        const permEntries = await redis.xrevrange(
+          "agent-rtc:permissions",
+          "+",
+          "-",
+          "COUNT",
+          50,
+        );
+        const permissions = permEntries.map(([id, fields]) => {
+          const fieldMap: Record<string, string> = {};
+          for (let i = 0; i < fields.length; i += 2) {
+            fieldMap[fields[i]] = fields[i + 1];
+          }
+          const data = fieldMap.data ? JSON.parse(fieldMap.data) : {};
+          return {
+            id,
+            type: data.type || "permission_request",
+            from: data.from || "",
+            fromDisplayName: data.fromDisplayName || data.from || "",
+            text: data.text || "",
+            timestamp: data.timestamp || id.split("-")[0],
+          };
+        });
+        return NextResponse.json(permissions);
+      }
+
       default:
         return NextResponse.json({ error: `unknown action: ${action}` }, { status: 400 });
     }
@@ -305,6 +331,35 @@ export async function POST(req: NextRequest) {
     await redis.connect();
 
     switch (action) {
+      case "permission-verdict": {
+        const { agentId, requestId, allow } = body as {
+          agentId?: string;
+          requestId?: string;
+          allow?: boolean;
+        };
+
+        if (!agentId || !requestId) {
+          return NextResponse.json(
+            { error: "agentId and requestId required" },
+            { status: 400 },
+          );
+        }
+
+        const verdict = allow ? `yes ${requestId}` : `no ${requestId}`;
+        const verdictData = JSON.stringify({
+          type: "permission_response",
+          from: "console",
+          fromDisplayName: "Console",
+          to: agentId,
+          text: verdict,
+          timestamp: Date.now().toString(),
+        });
+
+        await redis.xadd(`agent-rtc:agent:${agentId}`, "*", "data", verdictData);
+
+        return NextResponse.json({ ok: true });
+      }
+
       case "update-meta": {
         const { agentId, displayName, description, tags } = body as {
           agentId?: string;
