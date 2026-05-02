@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type Redis from "ioredis";
 
 const DUAL_XADD_SCRIPT = `
 redis.call('XADD', KEYS[1], 'MAXLEN', '~', ARGV[1], '*', 'data', ARGV[2])
@@ -8,14 +9,9 @@ return 1
 
 let cachedSha = createHash("sha1").update(DUAL_XADD_SCRIPT).digest("hex");
 
-/** Type-safe interface for Redis Lua operations */
-export interface RedisLuaClient {
-  evalsha(sha: string, numkeys: number, ...args: string[]): Promise<unknown>;
-  script(...args: unknown[]): Promise<unknown>;
-}
-
-async function reloadScript(redis: RedisLuaClient): Promise<void> {
-  cachedSha = (await redis.script("load", DUAL_XADD_SCRIPT)) as string;
+async function reloadScript(redis: Redis): Promise<void> {
+  const result = await redis.call("SCRIPT", "LOAD", DUAL_XADD_SCRIPT);
+  cachedSha = String(result);
 }
 
 /**
@@ -23,7 +19,7 @@ async function reloadScript(redis: RedisLuaClient): Promise<void> {
  * On NOSCRIPT error, reloads the script via SCRIPT LOAD and retries.
  */
 export async function dualXadd(
-  redis: RedisLuaClient,
+  redis: Redis,
   stream1: string,
   stream2: string,
   maxlen: string,
@@ -31,7 +27,7 @@ export async function dualXadd(
 ): Promise<void> {
   try {
     await redis.evalsha(cachedSha, 2, stream1, stream2, maxlen, data);
-  } catch (err: unknown) {
+  } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes("NOSCRIPT")) {
       await reloadScript(redis);

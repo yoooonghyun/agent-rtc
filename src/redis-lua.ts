@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 
 /**
  * Lua script for atomic dual-stream XADD.
- * Writes message to both a target stream and the global messages stream.
  * KEYS[1] = target stream, KEYS[2] = global messages stream
  * ARGV[1] = maxlen, ARGV[2] = data
  */
@@ -14,13 +13,15 @@ return 1
 
 let cachedSha = createHash("sha1").update(DUAL_XADD_SCRIPT).digest("hex");
 
+/** Minimal interface for Redis clients that support evalsha and call */
 export interface RedisLuaClient {
-  evalsha(sha: string, numkeys: number, ...args: string[]): Promise<unknown>;
-  script(...args: unknown[]): Promise<unknown>;
+  evalsha(sha: string, numkeys: number, ...args: string[]): Promise<number | string | null>;
+  call(command: string, ...args: string[]): Promise<string | number | null>;
 }
 
 async function reloadScript(redis: RedisLuaClient): Promise<void> {
-  cachedSha = (await redis.script("load", DUAL_XADD_SCRIPT)) as string;
+  const result = await redis.call("SCRIPT", "LOAD", DUAL_XADD_SCRIPT);
+  cachedSha = String(result);
 }
 
 /**
@@ -36,7 +37,7 @@ export async function dualXadd(
 ): Promise<void> {
   try {
     await redis.evalsha(cachedSha, 2, targetStream, messagesStream, maxlen, data);
-  } catch (err: unknown) {
+  } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes("NOSCRIPT")) {
       await reloadScript(redis);
