@@ -103,7 +103,9 @@ export async function GET(req: NextRequest) {
             fieldMap[fields[i]] = fields[i + 1];
           }
           const data = fieldMap.data ? JSON.parse(fieldMap.data) : {};
-          if (data.from !== "console" && data.to !== "console") continue;
+          const isConsoleMessage = data.from === "console" || data.to === "console";
+          const isPermission = data.type === "permission_request" || data.type === "permission_response";
+          if (!isConsoleMessage && !isPermission) continue;
           const receiverMeta = data.to
             ? await redis.hgetall(`agent-rtc:meta:${data.to}`)
             : {};
