@@ -12,50 +12,40 @@ redis.call('XADD', KEYS[2], 'MAXLEN', '~', ARGV[1], '*', 'data', ARGV[2])
 return 1
 `;
 
-const DUAL_XADD_SHA = createHash("sha1").update(DUAL_XADD_SCRIPT).digest("hex");
+let cachedSha = createHash("sha1").update(DUAL_XADD_SCRIPT).digest("hex");
+
+interface RedisLuaClient {
+  evalsha(sha: string, numkeys: number, ...args: string[]): Promise<unknown>;
+  script(cmd: "load", script: string): Promise<string>;
+}
 
 /**
- * Atomically write a message to a target stream and the global messages stream.
- * Falls back to individual XADD calls if the script is evicted.
+ * Reload the Lua script into Redis and update the cached SHA.
+ */
+async function reloadScript(redis: RedisLuaClient): Promise<void> {
+  cachedSha = await redis.script("load", DUAL_XADD_SCRIPT);
+}
+
+/**
+ * Atomically write a message to two Redis streams using a Lua script.
+ * On NOSCRIPT error, reloads the script via SCRIPT LOAD and retries.
  */
 export async function dualXadd(
-  redis: { evalsha: Function; eval: Function; xadd: Function },
+  redis: RedisLuaClient,
   targetStream: string,
   messagesStream: string,
   maxlen: string,
   data: string
 ): Promise<void> {
   try {
-    await redis.evalsha(
-      DUAL_XADD_SHA,
-      2,
-      targetStream,
-      messagesStream,
-      maxlen,
-      data
-    );
+    await redis.evalsha(cachedSha, 2, targetStream, messagesStream, maxlen, data);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes("NOSCRIPT")) {
-      // Script evicted — reload and retry
-      try {
-        await redis.eval(
-          DUAL_XADD_SCRIPT,
-          2,
-          targetStream,
-          messagesStream,
-          maxlen,
-          data
-        );
-      } catch {
-        // Lua failed entirely — fallback to individual calls
-        await redis.xadd(targetStream, "MAXLEN", "~", maxlen, "*", "data", data);
-        await redis.xadd(messagesStream, "MAXLEN", "~", maxlen, "*", "data", data);
-      }
+      await reloadScript(redis);
+      await redis.evalsha(cachedSha, 2, targetStream, messagesStream, maxlen, data);
     } else {
-      // Non-NOSCRIPT error — fallback
-      await redis.xadd(targetStream, "MAXLEN", "~", maxlen, "*", "data", data);
-      await redis.xadd(messagesStream, "MAXLEN", "~", maxlen, "*", "data", data);
+      throw err;
     }
   }
 }

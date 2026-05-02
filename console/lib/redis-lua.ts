@@ -7,11 +7,15 @@ redis.call('XADD', KEYS[2], 'MAXLEN', '~', ARGV[1], '*', 'data', ARGV[2])
 return 1
 `;
 
-const DUAL_XADD_SHA = createHash("sha1").update(DUAL_XADD_SCRIPT).digest("hex");
+let cachedSha = createHash("sha1").update(DUAL_XADD_SCRIPT).digest("hex");
+
+async function reloadScript(redis: Redis): Promise<void> {
+  cachedSha = await (redis as unknown as { script(cmd: string, script: string): Promise<string> }).script("load", DUAL_XADD_SCRIPT);
+}
 
 /**
- * Atomically write a message to two Redis streams.
- * Falls back to individual XADD calls if the Lua script is evicted.
+ * Atomically write a message to two Redis streams using a Lua script.
+ * On NOSCRIPT error, reloads the script via SCRIPT LOAD and retries.
  */
 export async function dualXadd(
   redis: Redis,
@@ -21,19 +25,14 @@ export async function dualXadd(
   data: string
 ): Promise<void> {
   try {
-    await redis.evalsha(DUAL_XADD_SHA, 2, stream1, stream2, maxlen, data);
+    await redis.evalsha(cachedSha, 2, stream1, stream2, maxlen, data);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes("NOSCRIPT")) {
-      try {
-        await redis.eval(DUAL_XADD_SCRIPT, 2, stream1, stream2, maxlen, data);
-      } catch {
-        await redis.xadd(stream1, "MAXLEN", "~", maxlen, "*", "data", data);
-        await redis.xadd(stream2, "MAXLEN", "~", maxlen, "*", "data", data);
-      }
+      await reloadScript(redis);
+      await redis.evalsha(cachedSha, 2, stream1, stream2, maxlen, data);
     } else {
-      await redis.xadd(stream1, "MAXLEN", "~", maxlen, "*", "data", data);
-      await redis.xadd(stream2, "MAXLEN", "~", maxlen, "*", "data", data);
+      throw err;
     }
   }
 }
