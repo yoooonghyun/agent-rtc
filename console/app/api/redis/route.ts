@@ -346,8 +346,18 @@ export async function POST(req: NextRequest) {
         }
 
         const verdict = allow ? `yes ${requestId}` : `no ${requestId}`;
+        const meta = await redis.hgetall(`agent-rtc:meta:${agentId}`);
+        const agentDisplayName = meta.displayName || agentId;
         const verdictData = JSON.stringify({
           type: "permission_response",
+          from: "console",
+          fromDisplayName: "Console",
+          to: agentId,
+          text: `${allow ? "Approved" : "Denied"} permission for ${agentDisplayName}: ${verdict}`,
+          timestamp: Date.now().toString(),
+        });
+        const rawVerdict = JSON.stringify({
+          type: "message",
           from: "console",
           fromDisplayName: "Console",
           to: agentId,
@@ -355,7 +365,10 @@ export async function POST(req: NextRequest) {
           timestamp: Date.now().toString(),
         });
 
-        await redis.xadd(`agent-rtc:agent:${agentId}`, "*", "data", verdictData);
+        // Send verdict to agent
+        await redis.xadd(`agent-rtc:agent:${agentId}`, "*", "data", rawVerdict);
+        // Log to global messages for chat visibility
+        await redis.xadd("agent-rtc:messages", "*", "data", verdictData);
 
         return NextResponse.json({ ok: true });
       }

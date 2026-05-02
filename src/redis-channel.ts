@@ -268,6 +268,8 @@ mcp.setNotificationHandler(PermissionRequestSchema, async ({ params }) => {
     timestamp: Date.now(),
   });
   await redis.xadd(`${P}:permissions`, "MAXLEN", "~", String(STREAM_MAXLEN), "*", "data", msg);
+  // Also log to global messages for chat visibility
+  await redis.xadd(`${P}:messages`, "MAXLEN", "~", String(STREAM_MAXLEN), "*", "data", msg);
 });
 
 // --- Subscribe to own agent stream ---
