@@ -4,6 +4,7 @@ import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import { useAgentStore } from "@/lib/stores";
 import { ZIndex } from "@/lib/z-index";
+import { sendPermissionVerdict } from "@/lib/api";
 import { sendMessage, fetchChatMessages } from "@/lib/api";
 import { MentionInput } from "./mention-input";
 import type { Agent, Message } from "@/lib/types";
@@ -24,50 +25,87 @@ function formatTime(ts: string): string {
   }
 }
 
-function PermissionMessage({ message }: { message: Message }) {
-  const isApproved = message.text.startsWith("Approved");
-  const isDenied = message.text.startsWith("Denied");
+function PermissionBubble({
+  message,
+  onApprove,
+  onDeny,
+}: {
+  message: Message;
+  onApprove?: (agentId: string, requestId: string) => void;
+  onDeny?: (agentId: string, requestId: string) => void;
+}) {
   const isRequest = message.type === "permission_request";
+  const isResponse = message.type === "permission_response";
+  const isApproved = isResponse && message.text.startsWith("Approved");
+  const isSent = message.sender === "console";
+
+  // Parse requestId from text for approve/deny buttons
+  const requestIdMatch = message.text.match(/"(?:yes|no)\s+([a-km-z]{5})"/);
+  const requestId = requestIdMatch?.[1] ?? "";
 
   return (
     <div
-      className="flex flex-col items-center gap-1 py-2"
-      style={{ alignSelf: "center", maxWidth: "85%" }}
+      className="flex flex-col gap-1"
+      style={{
+        alignItems: isSent ? "flex-end" : "flex-start",
+        maxWidth: "75%",
+        alignSelf: isSent ? "flex-end" : "flex-start",
+      }}
     >
+      <span
+        className="text-xs font-medium"
+        style={{ color: "var(--fg-tertiary)", padding: "0 4px" }}
+      >
+        {isSent
+          ? `To ${message.receiverDisplayName || message.receiver}`
+          : `From ${message.senderDisplayName || message.sender}`}
+      </span>
       <div
-        className="flex items-center gap-2 px-4 py-2 text-xs font-medium rounded-full"
+        className="px-4 py-3 text-sm"
         style={{
-          background: isRequest
-            ? "var(--warning-50, #FFF8E1)"
-            : isApproved
-              ? "var(--success-50, #E8F5E9)"
-              : isDenied
-                ? "var(--error-50, #FFEBEE)"
-                : "var(--grey-50)",
-          color: isRequest
-            ? "var(--warning-500, #FF9500)"
-            : isApproved
-              ? "var(--success-500)"
-              : isDenied
-                ? "var(--error-500, #F04452)"
-                : "var(--fg-tertiary)",
+          borderRadius: 16,
+          background: isResponse
+            ? isApproved ? "var(--success-50, #E8F5E9)" : "var(--error-50, #FFEBEE)"
+            : "var(--grey-50)",
+          color: "var(--fg-primary)",
+          wordBreak: "break-word",
+          lineHeight: 1.5,
           border: `1px solid ${
-            isRequest
-              ? "var(--warning-200, #FFE0B2)"
-              : isApproved
-                ? "var(--success-200, #C8E6C9)"
-                : isDenied
-                  ? "var(--error-200, #FFCDD2)"
-                  : "var(--grey-100)"
+            isResponse
+              ? isApproved ? "var(--success-200, #C8E6C9)" : "var(--error-200, #FFCDD2)"
+              : "var(--grey-100)"
           }`,
         }}
       >
-        <span>{isRequest ? "🔐" : isApproved ? "✅" : isDenied ? "❌" : "📋"}</span>
-        <span>{message.text}</span>
+        <ReactMarkdown>{message.text}</ReactMarkdown>
+        {isRequest && onApprove && onDeny && requestId && (
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={() => onApprove(message.sender, requestId)}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+              style={{
+                background: "var(--success-500)",
+                color: "#fff",
+              }}
+            >
+              Approve
+            </button>
+            <button
+              onClick={() => onDeny(message.sender, requestId)}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+              style={{
+                background: "var(--error-500, #F04452)",
+                color: "#fff",
+              }}
+            >
+              Deny
+            </button>
+          </div>
+        )}
       </div>
       <span
         className="text-xs tabular-nums"
-        style={{ color: "var(--fg-tertiary)" }}
+        style={{ color: "var(--fg-tertiary)", padding: "0 4px" }}
       >
         {formatTime(message.timestamp)}
       </span>
@@ -272,6 +310,24 @@ export function Chat() {
     }
   }, [sortedMessages.length, loadingMore]);
 
+  async function handlePermissionApprove(agentId: string, requestId: string) {
+    try {
+      await sendPermissionVerdict(agentId, requestId, true);
+      await pollChat();
+    } catch (err) {
+      console.error("Failed to approve:", err);
+    }
+  }
+
+  async function handlePermissionDeny(agentId: string, requestId: string) {
+    try {
+      await sendPermissionVerdict(agentId, requestId, false);
+      await pollChat();
+    } catch (err) {
+      console.error("Failed to deny:", err);
+    }
+  }
+
   function handleReply(agentId: string, displayName: string) {
     const agent = agents.find((a) => a.agentId === agentId);
     if (agent) {
@@ -439,7 +495,14 @@ export function Chat() {
         )}
         {sortedMessages.map((msg) => {
           if (msg.type === "permission_request" || msg.type === "permission_response") {
-            return <PermissionMessage key={msg.id} message={msg} />;
+            return (
+              <PermissionBubble
+                key={msg.id}
+                message={msg}
+                onApprove={handlePermissionApprove}
+                onDeny={handlePermissionDeny}
+              />
+            );
           }
           return (
             <ChatBubble
