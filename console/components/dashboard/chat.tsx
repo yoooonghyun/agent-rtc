@@ -7,6 +7,7 @@ import { ZIndex } from "@/lib/z-index";
 import { sendPermissionVerdict } from "@/lib/api";
 import { sendMessage, fetchChatMessages } from "@/lib/api";
 import { MentionInput } from "./mention-input";
+import { Button } from "@/components/ui/button";
 import type { Agent, Message } from "@/lib/types";
 
 const CONSOLE_SENDER = "Console";
@@ -65,14 +66,14 @@ function PermissionBubble({
         style={{
           borderRadius: 16,
           background: isResponse
-            ? isApproved ? "var(--success-50, #E8F5E9)" : "var(--error-50, #FFEBEE)"
+            ? isApproved ? "var(--success-50)" : "var(--error-50)"
             : "var(--grey-50)",
           color: "var(--fg-primary)",
           wordBreak: "break-word",
           lineHeight: 1.5,
           border: `1px solid ${
             isResponse
-              ? isApproved ? "var(--success-200, #C8E6C9)" : "var(--error-200, #FFCDD2)"
+              ? isApproved ? "var(--success-100)" : "var(--error-100)"
               : "var(--grey-100)"
           }`,
         }}
@@ -80,26 +81,29 @@ function PermissionBubble({
         <ReactMarkdown>{message.text}</ReactMarkdown>
         {isRequest && onApprove && onDeny && requestId && (
           <div className="flex gap-2 mt-3">
-            <button
+            <Button
+              size="xs"
               onClick={() => onApprove(message.sender, requestId)}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
               style={{
                 background: "var(--success-500)",
-                color: "#fff",
+                color: "var(--grey-0)",
+                borderColor: "transparent",
               }}
             >
               Approve
-            </button>
-            <button
+            </Button>
+            <Button
+              size="xs"
+              variant="destructive"
               onClick={() => onDeny(message.sender, requestId)}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
               style={{
-                background: "var(--error-500, #F04452)",
-                color: "#fff",
+                background: "var(--error-500)",
+                color: "var(--grey-0)",
+                borderColor: "transparent",
               }}
             >
               Deny
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -144,13 +148,13 @@ function ChatBubble({
         style={{
           borderRadius: 16,
           background: isSent ? "var(--brand)" : "var(--grey-50)",
-          color: isSent ? "#fff" : "var(--fg-primary)",
+          color: isSent ? "var(--grey-0)" : "var(--fg-primary)",
           wordBreak: "break-word",
           lineHeight: 1.5,
-          ["--tw-prose-body" as string]: isSent ? "#fff" : "var(--fg-primary)",
-          ["--tw-prose-headings" as string]: isSent ? "#fff" : "var(--fg-primary)",
-          ["--tw-prose-bold" as string]: isSent ? "#fff" : "var(--fg-primary)",
-          ["--tw-prose-code" as string]: isSent ? "#dbeafe" : "var(--fg-secondary)",
+          ["--tw-prose-body" as string]: isSent ? "var(--grey-0)" : "var(--fg-primary)",
+          ["--tw-prose-headings" as string]: isSent ? "var(--grey-0)" : "var(--fg-primary)",
+          ["--tw-prose-bold" as string]: isSent ? "var(--grey-0)" : "var(--fg-primary)",
+          ["--tw-prose-code" as string]: isSent ? "var(--toss-blue-100)" : "var(--fg-secondary)",
         }}
       >
         <ReactMarkdown>{message.text}</ReactMarkdown>
@@ -355,7 +359,7 @@ export function Chat() {
       className="flex flex-col"
       style={{
         height: "calc(100vh - 64px - 40px)",
-        background: "#fff",
+        background: "var(--bg-surface)",
         borderRadius: 16,
         border: "1px solid var(--grey-100)",
         overflow: "hidden",
@@ -400,7 +404,7 @@ export function Chat() {
               className="absolute top-full left-0 mt-1 py-1"
               style={{
                 zIndex: ZIndex.dropdown,
-                background: "#fff",
+                background: "var(--bg-surface)",
                 borderRadius: 12,
                 boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)",
                 border: "1px solid var(--grey-100)",
