@@ -24,6 +24,57 @@ function formatTime(ts: string): string {
   }
 }
 
+function PermissionMessage({ message }: { message: Message }) {
+  const isApproved = message.text.startsWith("Approved");
+  const isDenied = message.text.startsWith("Denied");
+  const isRequest = message.type === "permission_request";
+
+  return (
+    <div
+      className="flex flex-col items-center gap-1 py-2"
+      style={{ alignSelf: "center", maxWidth: "85%" }}
+    >
+      <div
+        className="flex items-center gap-2 px-4 py-2 text-xs font-medium rounded-full"
+        style={{
+          background: isRequest
+            ? "var(--warning-50, #FFF8E1)"
+            : isApproved
+              ? "var(--success-50, #E8F5E9)"
+              : isDenied
+                ? "var(--error-50, #FFEBEE)"
+                : "var(--grey-50)",
+          color: isRequest
+            ? "var(--warning-500, #FF9500)"
+            : isApproved
+              ? "var(--success-500)"
+              : isDenied
+                ? "var(--error-500, #F04452)"
+                : "var(--fg-tertiary)",
+          border: `1px solid ${
+            isRequest
+              ? "var(--warning-200, #FFE0B2)"
+              : isApproved
+                ? "var(--success-200, #C8E6C9)"
+                : isDenied
+                  ? "var(--error-200, #FFCDD2)"
+                  : "var(--grey-100)"
+          }`,
+        }}
+      >
+        <span>{isRequest ? "🔐" : isApproved ? "✅" : isDenied ? "❌" : "📋"}</span>
+        <span>{message.text}</span>
+      </div>
+      <span
+        className="text-xs tabular-nums"
+        style={{ color: "var(--fg-tertiary)" }}
+      >
+        {formatTime(message.timestamp)}
+      </span>
+    </div>
+  );
+}
+
 function ChatBubble({
   message,
   isSent,
@@ -386,17 +437,22 @@ export function Chat() {
             </p>
           </div>
         )}
-        {sortedMessages.map((msg) => (
-          <ChatBubble
-            key={msg.id}
-            message={msg}
-            isSent={
-              msg.sender === "console" ||
-              msg.senderDisplayName === CONSOLE_SENDER
-            }
-            onReply={handleReply}
-          />
-        ))}
+        {sortedMessages.map((msg) => {
+          if (msg.type === "permission_request" || msg.type === "permission_response") {
+            return <PermissionMessage key={msg.id} message={msg} />;
+          }
+          return (
+            <ChatBubble
+              key={msg.id}
+              message={msg}
+              isSent={
+                msg.sender === "console" ||
+                msg.senderDisplayName === CONSOLE_SENDER
+              }
+              onReply={handleReply}
+            />
+          );
+        })}
       </div>
 
       {/* Input */}
