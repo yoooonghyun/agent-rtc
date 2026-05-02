@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Redis from "ioredis";
+import { dualXadd } from "@/lib/redis-lua";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
 
@@ -45,11 +46,8 @@ export async function POST(req: NextRequest) {
       timestamp,
     });
 
-    // Write to the target agent's stream
-    await redis.xadd("agent-rtc:agent:" + targetAgentId, "*", "data", data);
-
-    // Write to the global message log stream
-    await redis.xadd("agent-rtc:messages", "*", "data", data);
+    // Atomically write to target agent stream + global messages stream
+    await dualXadd(redis, "agent-rtc:agent:" + targetAgentId, "agent-rtc:messages", "10000", data);
 
     return NextResponse.json({ ok: true, timestamp });
   } catch (err) {

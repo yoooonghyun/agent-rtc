@@ -10,6 +10,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import Redis from "ioredis";
+import { dualXadd } from "./redis-lua.js";
 
 // --- Config ---
 
@@ -190,10 +191,8 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
       text,
       timestamp: Date.now(),
     });
-    // Write to target agent's stream
-    await redis.xadd(`${P}:agent:${targetAgent}`, "MAXLEN", "~", String(STREAM_MAXLEN), "*", "data", msg);
-    // Write to global messages stream for console history
-    await redis.xadd(`${P}:messages`, "MAXLEN", "~", String(STREAM_MAXLEN), "*", "data", msg);
+    // Atomically write to target agent stream + global messages stream
+    await dualXadd(redis, `${P}:agent:${targetAgent}`, `${P}:messages`, String(STREAM_MAXLEN), msg);
     return { content: [{ type: "text" as const, text: "sent" }] };
   }
 
@@ -267,9 +266,8 @@ mcp.setNotificationHandler(PermissionRequestSchema, async ({ params }) => {
     text,
     timestamp: Date.now(),
   });
-  await redis.xadd(`${P}:permissions`, "MAXLEN", "~", String(STREAM_MAXLEN), "*", "data", msg);
-  // Also log to global messages for chat visibility
-  await redis.xadd(`${P}:messages`, "MAXLEN", "~", String(STREAM_MAXLEN), "*", "data", msg);
+  // Atomically write to permissions stream + global messages stream
+  await dualXadd(redis, `${P}:permissions`, `${P}:messages`, String(STREAM_MAXLEN), msg);
 });
 
 // --- Subscribe to own agent stream ---

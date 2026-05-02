@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Redis from "ioredis";
+import { dualXadd } from "@/lib/redis-lua";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
 
@@ -365,10 +366,10 @@ export async function POST(req: NextRequest) {
           timestamp: Date.now().toString(),
         });
 
-        // Send verdict to agent
+        // Send raw verdict to agent (for MCP processing)
         await redis.xadd(`agent-rtc:agent:${agentId}`, "*", "data", rawVerdict);
-        // Log to global messages for chat visibility
-        await redis.xadd("agent-rtc:messages", "*", "data", verdictData);
+        // Log human-readable verdict to global messages (for chat visibility)
+        await redis.xadd("agent-rtc:messages", "MAXLEN", "~", "10000", "*", "data", verdictData);
 
         return NextResponse.json({ ok: true });
       }
