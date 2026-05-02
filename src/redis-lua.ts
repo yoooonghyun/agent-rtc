@@ -14,16 +14,13 @@ return 1
 
 let cachedSha = createHash("sha1").update(DUAL_XADD_SCRIPT).digest("hex");
 
-interface RedisLuaClient {
+export interface RedisLuaClient {
   evalsha(sha: string, numkeys: number, ...args: string[]): Promise<unknown>;
-  script(cmd: "load", script: string): Promise<string>;
+  script(...args: unknown[]): Promise<unknown>;
 }
 
-/**
- * Reload the Lua script into Redis and update the cached SHA.
- */
 async function reloadScript(redis: RedisLuaClient): Promise<void> {
-  cachedSha = await redis.script("load", DUAL_XADD_SCRIPT);
+  cachedSha = (await redis.script("load", DUAL_XADD_SCRIPT)) as string;
 }
 
 /**
