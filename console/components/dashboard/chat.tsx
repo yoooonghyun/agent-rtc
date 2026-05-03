@@ -8,6 +8,8 @@ import { sendPermissionVerdict } from "@/lib/api";
 import { sendMessage, fetchChatMessages } from "@/lib/api";
 import { MentionInput } from "./mention-input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import type { Agent, Message } from "@/lib/types";
 
 const CONSOLE_SENDER = "Console";
@@ -30,10 +32,12 @@ function PermissionBubble({
   message,
   onApprove,
   onDeny,
+  respondedVerdict,
 }: {
   message: Message;
   onApprove?: (agentId: string, requestId: string) => void;
   onDeny?: (agentId: string, requestId: string) => void;
+  respondedVerdict?: "approved" | "denied" | null;
 }) {
   const isRequest = message.type === "permission_request";
   const isResponse = message.type === "permission_response";
@@ -79,7 +83,21 @@ function PermissionBubble({
         }}
       >
         <ReactMarkdown>{message.text}</ReactMarkdown>
-        {isRequest && onApprove && onDeny && requestId && (
+        {isRequest && requestId && respondedVerdict && (
+          <div className="flex gap-2 mt-3">
+            <Badge
+              className="text-xs"
+              style={{
+                background: respondedVerdict === "approved" ? "var(--success-50)" : "var(--error-50)",
+                color: respondedVerdict === "approved" ? "var(--success-500)" : "var(--error-500)",
+                border: `1px solid ${respondedVerdict === "approved" ? "var(--success-100)" : "var(--error-100)"}`,
+              }}
+            >
+              {respondedVerdict === "approved" ? "Approved" : "Denied"}
+            </Badge>
+          </div>
+        )}
+        {isRequest && onApprove && onDeny && requestId && !respondedVerdict && (
           <div className="flex gap-2 mt-3">
             <Button
               size="xs"
@@ -194,9 +212,11 @@ export function Chat() {
   const [replyTarget, setReplyTarget] = React.useState<Agent | null>(null);
   const [selectedAgentIds, setSelectedAgentIds] = React.useState<Set<string>>(new Set());
   const [filterOpen, setFilterOpen] = React.useState(false);
+  const [autoApprove, setAutoApprove] = React.useState(false);
   const filterRef = React.useRef<HTMLDivElement>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const prevCountRef = React.useRef(0);
+  const seenMessageIdsRef = React.useRef<Set<string>>(new Set());
 
   const isAllSelected = selectedAgentIds.size === 0;
 
@@ -295,6 +315,53 @@ export function Chat() {
     );
   }, [messages, selectedAgentIds, isAllSelected]);
 
+  // Build a map of requestId -> verdict from permission_response messages
+  const respondedRequests = React.useMemo(() => {
+    const map = new Map<string, "approved" | "denied">();
+    for (const msg of messages) {
+      if (msg.type === "permission_response") {
+        // Match patterns like "yes {id}", "no {id}", "Approved...yes {id}", "Denied...no {id}"
+        const yesMatch = msg.text.match(/yes\s+([a-km-z]{5})/);
+        const noMatch = msg.text.match(/no\s+([a-km-z]{5})/);
+        if (yesMatch) {
+          map.set(yesMatch[1], "approved");
+        } else if (noMatch) {
+          map.set(noMatch[1], "denied");
+        }
+      }
+    }
+    return map;
+  }, [messages]);
+
+  // Auto-approve: when new permission_request messages arrive, auto-approve them
+  const autoApproveRef = React.useRef(autoApprove);
+  autoApproveRef.current = autoApprove;
+
+  React.useEffect(() => {
+    if (!autoApproveRef.current) return;
+    for (const msg of messages) {
+      if (
+        msg.type === "permission_request" &&
+        !seenMessageIdsRef.current.has(msg.id)
+      ) {
+        seenMessageIdsRef.current.add(msg.id);
+        // Parse requestId from the request text
+        const reqIdMatch = msg.text.match(/"(?:yes|no)\s+([a-km-z]{5})"/);
+        const reqId = reqIdMatch?.[1];
+        if (reqId && !respondedRequests.has(reqId)) {
+          sendPermissionVerdict(msg.sender, reqId, true).then(() => pollChat());
+        }
+      }
+    }
+  }, [messages, respondedRequests, pollChat]);
+
+  // Track seen message IDs (mark existing messages as seen on first load)
+  React.useEffect(() => {
+    for (const msg of messages) {
+      seenMessageIdsRef.current.add(msg.id);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-scroll to bottom only for new messages (not when loading older)
   React.useEffect(() => {
     const newCount = sortedMessages.length;
@@ -379,6 +446,23 @@ export function Chat() {
         >
           Chat
         </h2>
+
+        {/* Auto-approve toggle */}
+        <div className="flex items-center gap-2 ml-auto">
+          <label
+            htmlFor="auto-approve-toggle"
+            className="text-xs font-medium"
+            style={{ color: "var(--fg-secondary)" }}
+          >
+            Auto-approve
+          </label>
+          <Switch
+            id="auto-approve-toggle"
+            size="sm"
+            checked={autoApprove}
+            onCheckedChange={(checked) => setAutoApprove(checked)}
+          />
+        </div>
 
         {/* Filter dropdown */}
         <div className="relative" ref={filterRef}>
@@ -499,12 +583,22 @@ export function Chat() {
         )}
         {sortedMessages.map((msg) => {
           if (msg.type === "permission_request" || msg.type === "permission_response") {
+            // For requests, check if already responded
+            let verdict: "approved" | "denied" | null = null;
+            if (msg.type === "permission_request") {
+              const reqIdMatch = msg.text.match(/"(?:yes|no)\s+([a-km-z]{5})"/);
+              const reqId = reqIdMatch?.[1];
+              if (reqId && respondedRequests.has(reqId)) {
+                verdict = respondedRequests.get(reqId)!;
+              }
+            }
             return (
               <PermissionBubble
                 key={msg.id}
                 message={msg}
                 onApprove={handlePermissionApprove}
                 onDeny={handlePermissionDeny}
+                respondedVerdict={verdict}
               />
             );
           }
