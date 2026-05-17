@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+# Pre-commit hook for agent-rtc.
+#
+# 1. lint-staged runs ESLint scoped to staged files only.
+# 2. Typecheck cannot be sensibly scoped to staged files (tsc is project-wide),
+#    so we run the full typecheck for the whole monorepo. It's fast enough.
+#
+# To bypass in an emergency: `git commit --no-verify`.
+
+set -e
+
+# Lint staged files (scoped via lint-staged config in root package.json).
+npx --no-install lint-staged
+
+# Full typecheck across both packages.
+npm run typecheck

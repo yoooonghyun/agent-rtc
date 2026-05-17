@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import Redis from "ioredis";
-import { dualXadd } from "@/lib/redis-lua";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
 

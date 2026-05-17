@@ -12,7 +12,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.mcp.json",
     "prepublishOnly": "npm run build",
-    "start": "node dist/redis-channel.js"
+    "start": "node dist/redis-channel.js",
+    "lint:root": "eslint .",
+    "lint:console": "npm --prefix console run lint",
+    "lint": "npm run lint:root && npm run lint:console",
+    "typecheck:root": "tsc --noEmit -p tsconfig.mcp.json",
+    "typecheck:console": "npm --prefix console run typecheck",
+    "typecheck": "npm run typecheck:root && npm run typecheck:console",
+    "prepare": "husky"
   },
   "keywords": [
     "mcp",
@@ -40,7 +47,21 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@eslint/js": "^9.18.0",
     "@types/node": "^25.6.0",
-    "typescript": "^6.0.3"
+    "eslint": "^9.18.0",
+    "globals": "^15.14.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.20.0"
+  },
+  "lint-staged": {
+    "src/**/*.ts": [
+      "eslint --max-warnings=0"
+    ],
+    "console/**/*.{ts,tsx}": [
+      "bash -c 'cd console && eslint --max-warnings=0 \"$@\"' --"
+    ]
   }
 }
