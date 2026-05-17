@@ -33,10 +33,26 @@ All keys prefixed with `agent-rtc:`:
 
 ### Message Flow
 
-1. Agent A calls `reply(targetAgent, text)`
+1. Agent A calls `reply(targetAgent, text, metadata?)`
 2. redis-channel XADDs to `agent-rtc:agent:{targetAgent}` and `agent-rtc:messages`
 3. Agent B's redis-channel receives via XREAD BLOCK on its own stream
 4. Message delivered as `notifications/claude/channel` to Claude
+
+### Message Payload Shape
+
+The `data` field of every entry written to `agent-rtc:agent:{id}`, `agent-rtc:messages`, and `agent-rtc:permissions` is a JSON string with this shape:
+
+| Field             | Type                       | Required | Notes                                                                                       |
+|-------------------|----------------------------|----------|---------------------------------------------------------------------------------------------|
+| `type`            | string                     | optional | `"message"`, `"permission_request"`, `"permission_response"`. Absent ⇒ treated as message.   |
+| `from`            | string                     | yes      | Sender `agentId` (or `"console"`).                                                          |
+| `fromDisplayName` | string                     | yes      | Sender display name.                                                                        |
+| `to`              | string                     | yes      | Receiver `agentId`. `"console"` for messages addressed to the console.                       |
+| `text`            | string                     | yes      | Message body.                                                                               |
+| `timestamp`       | number \| string           | yes      | Millisecond epoch. Some legacy producers stringify it.                                       |
+| `metadata`        | `Record<string, string>`   | optional | Opaque context propagated end-to-end (e.g. `telegram_chat_id`). Omitted when not provided.   |
+
+`metadata` is invisible plumbing for downstream routing (e.g. a Telegram dispatch service that needs to send replies back to the originating chat). The broker does NOT interpret its values; it MUST forward them unchanged. Producers should omit the field rather than write `{}` when there's nothing to carry.
 
 ### Agent Presence
 

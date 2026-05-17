@@ -22,6 +22,12 @@ export interface Message {
   receiverDisplayName: string;
   text: string;
   timestamp: string;
+  /**
+   * Opaque key/value context propagated with the message
+   * (e.g. telegram_chat_id of an originating chat).
+   * Present only when the producer attached it.
+   */
+  metadata?: Record<string, string>;
 }
 
 export interface Stats {

@@ -16,9 +16,11 @@
     "lint:root": "eslint .",
     "lint:console": "npm --prefix console run lint",
     "lint": "npm run lint:root && npm run lint:console",
-    "typecheck:root": "tsc --noEmit -p tsconfig.mcp.json",
+    "typecheck:root": "tsc --noEmit -p tsconfig.mcp.json && tsc --noEmit -p tsconfig.test.json",
     "typecheck:console": "npm --prefix console run typecheck",
     "typecheck": "npm run typecheck:root && npm run typecheck:console",
+    "build:test": "tsc -p tsconfig.test-build.json",
+    "test": "npm run build:test && node --test dist-test/redis-channel.metadata.test.js",
     "prepare": "husky"
   },
   "keywords": [

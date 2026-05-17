@@ -139,6 +139,12 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           targetAgent: { type: "string", description: "The agentId of the target agent" },
           text: { type: "string", description: "The message to send" },
+          metadata: {
+            type: "object",
+            description:
+              "Optional opaque context propagated with the message (e.g. telegram_chat_id). All values must be strings.",
+            additionalProperties: { type: "string" },
+          },
         },
         required: ["targetAgent", "text"],
       },
@@ -181,7 +187,18 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
 const ReplyToolArgsSchema = z.object({
   targetAgent: z.string(),
   text: z.string(),
+  metadata: z.record(z.string(), z.string()).optional(),
 });
+
+interface ReplyPayload {
+  type: "message";
+  from: string;
+  fromDisplayName: string;
+  to: string;
+  text: string;
+  timestamp: number;
+  metadata?: Record<string, string>;
+}
 
 const MasterToolArgsSchema = z.object({
   masterAgentId: z.string(),
@@ -193,15 +210,19 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
     if (!parsed.success) {
       throw new Error("reply: invalid arguments");
     }
-    const { targetAgent, text } = parsed.data;
-    const msg = JSON.stringify({
+    const { targetAgent, text, metadata } = parsed.data;
+    const payload: ReplyPayload = {
       type: "message",
       from: AGENT_ID,
       fromDisplayName: AGENT_NAME,
       to: targetAgent,
       text,
       timestamp: Date.now(),
-    });
+    };
+    if (metadata && Object.keys(metadata).length > 0) {
+      payload.metadata = metadata;
+    }
+    const msg = JSON.stringify(payload);
     // Atomically write to target agent stream + global messages stream
     await dualXadd(redis, `${P}:agent:${targetAgent}`, `${P}:messages`, String(STREAM_MAXLEN), msg);
     return { content: [{ type: "text" as const, text: "sent" }] };
@@ -296,12 +317,14 @@ const AgentStreamPayloadSchema = z.object({
   from: z.string(),
   fromDisplayName: z.string(),
   text: z.string(),
+  metadata: z.record(z.string(), z.string()).optional(),
 });
 
 const PermissionStreamPayloadSchema = z.object({
   from: z.string(),
   fromDisplayName: z.string(),
   text: z.string(),
+  metadata: z.record(z.string(), z.string()).optional(),
 });
 
 // --- Subscribe to own agent stream ---
