@@ -12,6 +12,7 @@ export default tseslint.config(
   {
     ignores: [
       "dist/**",
+      "dist-test/**",
       "node_modules/**",
       "console/**", // console is linted by its own config
       ".sdd/**",
@@ -25,7 +26,7 @@ export default tseslint.config(
     files: ["src/**/*.ts"],
     languageOptions: {
       parserOptions: {
-        project: "./tsconfig.mcp.json",
+        project: ["./tsconfig.mcp.json", "./tsconfig.test.json"],
         tsconfigRootDir,
       },
       globals: {

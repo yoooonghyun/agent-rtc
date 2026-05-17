@@ -7,6 +7,83 @@ function getRedis() {
   return new Redis(REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: 1 });
 }
 
+/** Shape of the JSON object stored in the `data` field of agent-rtc stream entries. */
+interface StoredMessageData {
+  type?: string;
+  from?: string;
+  fromDisplayName?: string;
+  to?: string;
+  text?: string;
+  timestamp?: string | number;
+  metadata?: Record<string, string>;
+}
+
+/** Parse the `data` field of a stream entry; return an empty object on failure. */
+function parseStoredMessage(raw: string | undefined): StoredMessageData {
+  if (!raw) return {};
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return value as StoredMessageData;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+/** Validate that an unknown value is a `Record<string, string>`. */
+function isStringMap(value: unknown): value is Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  for (const v of Object.values(value as Record<string, unknown>)) {
+    if (typeof v !== "string") return false;
+  }
+  return true;
+}
+
+/** Convert a stored message to the API response shape, including optional metadata. */
+interface ApiMessage {
+  id: string;
+  type: string;
+  sender: string;
+  senderDisplayName: string;
+  receiver: string;
+  receiverDisplayName: string;
+  text: string;
+  timestamp: string;
+  metadata?: Record<string, string>;
+}
+
+function toApiMessage(
+  id: string,
+  data: StoredMessageData,
+  receiverDisplayName: string,
+): ApiMessage {
+  const msg: ApiMessage = {
+    id,
+    type: data.type || "message",
+    sender: data.from || "",
+    senderDisplayName: data.fromDisplayName || data.from || "",
+    receiver: data.to || "",
+    receiverDisplayName,
+    text: data.text || "",
+    timestamp: String(data.timestamp ?? id.split("-")[0]),
+  };
+  if (isStringMap(data.metadata) && Object.keys(data.metadata).length > 0) {
+    msg.metadata = data.metadata;
+  }
+  return msg;
+}
+
+/** Convert a Redis stream entry's flat fields array into a key/value map. */
+function fieldsToMap(fields: string[]): Record<string, string> {
+  const fieldMap: Record<string, string> = {};
+  for (let i = 0; i < fields.length; i += 2) {
+    fieldMap[fields[i]] = fields[i + 1];
+  }
+  return fieldMap;
+}
+
 export async function GET(req: NextRequest) {
   const action = req.nextUrl.searchParams.get("action");
   if (!action) {
@@ -94,30 +171,19 @@ export async function GET(req: NextRequest) {
           chatBefore = seq > 0 ? `${parts[0]}-${seq - 1}` : `${Number(parts[0]) - 1}`;
         }
         const chatEntries = await redis.xrevrange("agent-rtc:messages", chatBefore, "-");
-        const chatMessages = [];
+        const chatMessages: ApiMessage[] = [];
         for (const [id, fields] of chatEntries) {
           if (chatMessages.length >= chatLimit) break;
-          const fieldMap: Record<string, string> = {};
-          for (let i = 0; i < fields.length; i += 2) {
-            fieldMap[fields[i]] = fields[i + 1];
-          }
-          const data = fieldMap.data ? JSON.parse(fieldMap.data) : {};
+          const data = parseStoredMessage(fieldsToMap(fields).data);
           const isConsoleMessage = data.from === "console" || data.to === "console";
           const isPermission = data.type === "permission_request" || data.type === "permission_response";
           if (!isConsoleMessage && !isPermission) continue;
           const receiverMeta = data.to
             ? await redis.hgetall(`agent-rtc:meta:${data.to}`)
             : {};
-          chatMessages.push({
-            id,
-            type: data.type || "message",
-            sender: data.from || "",
-            senderDisplayName: data.fromDisplayName || data.from || "",
-            receiver: data.to || "",
-            receiverDisplayName: receiverMeta.displayName || data.to || "",
-            text: data.text || "",
-            timestamp: data.timestamp || id.split("-")[0],
-          });
+          chatMessages.push(
+            toApiMessage(id, data, receiverMeta.displayName || data.to || ""),
+          );
         }
         const hasMore = chatEntries.length > chatMessages.length || chatMessages.length === chatLimit;
         return NextResponse.json({ messages: chatMessages, hasMore });
@@ -129,29 +195,18 @@ export async function GET(req: NextRequest) {
           return NextResponse.json({ error: "agentId required" }, { status: 400 });
         }
         const directEntries = await redis.xrevrange("agent-rtc:messages", "+", "-", "COUNT", 200);
-        const directMessages = [];
+        const directMessages: ApiMessage[] = [];
         for (const [id, fields] of directEntries) {
-          const fieldMap: Record<string, string> = {};
-          for (let i = 0; i < fields.length; i += 2) {
-            fieldMap[fields[i]] = fields[i + 1];
-          }
-          const data = fieldMap.data ? JSON.parse(fieldMap.data) : {};
+          const data = parseStoredMessage(fieldsToMap(fields).data);
           const isConsoleToAgent = data.from === "console" && data.to === agentId;
           const isAgentToConsole = data.from === agentId && data.to === "console";
           if (!isConsoleToAgent && !isAgentToConsole) continue;
           const receiverMeta = data.to
             ? await redis.hgetall(`agent-rtc:meta:${data.to}`)
             : {};
-          directMessages.push({
-            id,
-            type: data.type || "message",
-            sender: data.from || "",
-            senderDisplayName: data.fromDisplayName || data.from || "",
-            receiver: data.to || "",
-            receiverDisplayName: receiverMeta.displayName || data.to || "",
-            text: data.text || "",
-            timestamp: data.timestamp || id.split("-")[0],
-          });
+          directMessages.push(
+            toApiMessage(id, data, receiverMeta.displayName || data.to || ""),
+          );
         }
         return NextResponse.json(directMessages);
       }
@@ -166,15 +221,11 @@ export async function GET(req: NextRequest) {
 
         // Fetch all entries to filter by agent, then paginate
         const allEntries = await redis.xrevrange("agent-rtc:messages", "+", "-");
-        const filtered: Array<{ id: string; fields: string[] }> = [];
+        const filtered: Array<{ id: string; data: StoredMessageData }> = [];
         for (const [id, fields] of allEntries) {
-          const fieldMap: Record<string, string> = {};
-          for (let i = 0; i < fields.length; i += 2) {
-            fieldMap[fields[i]] = fields[i + 1];
-          }
-          const data = fieldMap.data ? JSON.parse(fieldMap.data) : {};
+          const data = parseStoredMessage(fieldsToMap(fields).data);
           if (data.from === agentId || data.to === agentId) {
-            filtered.push({ id, fields });
+            filtered.push({ id, data });
           }
         }
 
@@ -183,25 +234,11 @@ export async function GET(req: NextRequest) {
         const slice = filtered.slice(start, start + pageSize);
 
         const agentMessages = await Promise.all(
-          slice.map(async ({ id, fields }) => {
-            const fieldMap: Record<string, string> = {};
-            for (let i = 0; i < fields.length; i += 2) {
-              fieldMap[fields[i]] = fields[i + 1];
-            }
-            const data = fieldMap.data ? JSON.parse(fieldMap.data) : {};
+          slice.map(async ({ id, data }) => {
             const receiverMeta = data.to
               ? await redis.hgetall(`agent-rtc:meta:${data.to}`)
               : {};
-            return {
-              id,
-              type: data.type || "message",
-              sender: data.from || "",
-              senderDisplayName: data.fromDisplayName || data.from || "",
-              receiver: data.to || "",
-              receiverDisplayName: receiverMeta.displayName || data.to || "",
-              text: data.text || "",
-              timestamp: data.timestamp || id.split("-")[0],
-            };
+            return toApiMessage(id, data, receiverMeta.displayName || data.to || "");
           })
         );
 
@@ -222,24 +259,11 @@ export async function GET(req: NextRequest) {
         const allPaged = allMsgEntries.slice(allStart, allStart + allPageSize);
         const allMessages = await Promise.all(
           allPaged.map(async ([id, fields]) => {
-            const fieldMap: Record<string, string> = {};
-            for (let i = 0; i < fields.length; i += 2) {
-              fieldMap[fields[i]] = fields[i + 1];
-            }
-            const data = fieldMap.data ? JSON.parse(fieldMap.data) : {};
+            const data = parseStoredMessage(fieldsToMap(fields).data);
             const receiverMeta = data.to
               ? await redis.hgetall(`agent-rtc:meta:${data.to}`)
               : {};
-            return {
-              id,
-              type: data.type || "message",
-              sender: data.from || "",
-              senderDisplayName: data.fromDisplayName || data.from || "",
-              receiver: data.to || "",
-              receiverDisplayName: receiverMeta.displayName || data.to || "",
-              text: data.text || "",
-              timestamp: data.timestamp || id.split("-")[0],
-            };
+            return toApiMessage(id, data, receiverMeta.displayName || data.to || "");
           })
         );
         return NextResponse.json({ messages: allMessages, total: allTotal, page: allPage, pageSize: allPageSize });
