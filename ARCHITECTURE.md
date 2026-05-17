@@ -70,3 +70,22 @@ All keys prefixed with `agent-rtc:`:
 - **TTL-based presence**: Backup for crash cleanup, no server-side disconnect hook needed
 - **Global messages stream**: Console queries full history via XRANGE
 - **Separate Redis connections**: XREAD BLOCK requires dedicated connection per subscription
+
+## Tooling
+
+| Command | What it does |
+|---|---|
+| `npm run lint` (root) | Runs ESLint for root (`eslint .`) then `npm --prefix console run lint`. Fails on either failure. |
+| `npm run typecheck` (root) | Runs `tsc --noEmit -p tsconfig.mcp.json` then `npm --prefix console run typecheck`. |
+| `npm run build` (root) | Unchanged: `tsc -p tsconfig.mcp.json` → `dist/`. |
+| Pre-commit hook (`.husky/pre-commit`) | `lint-staged` (ESLint on staged `*.ts` / `*.tsx`) + full `npm run typecheck`. |
+| CI (`.github/workflows/ci.yml`) | On push to `main` and on PRs: Node 20, install both packages, run lint + typecheck. |
+
+### ESLint configs
+
+- Root: `eslint.config.mjs` (flat config) — `@eslint/js` + `typescript-eslint` recommended. `no-explicit-any` is `error` per CLAUDE.md.
+- Console: `console/eslint.config.mjs` — `eslint-config-next` (unchanged).
+
+### Bypassing the hook
+
+`git commit --no-verify` skips the pre-commit hook. Use only for emergencies.

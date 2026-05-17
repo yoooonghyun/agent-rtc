@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { Redis } from "ioredis";
 
 /**
  * Lua script for atomic dual-stream XADD.
@@ -13,13 +14,7 @@ return 1
 
 let cachedSha = createHash("sha1").update(DUAL_XADD_SCRIPT).digest("hex");
 
-/** Minimal interface for Redis clients that support evalsha and call */
-export interface RedisLuaClient {
-  evalsha(sha: string, numkeys: number, ...args: string[]): Promise<number | string | null>;
-  call(command: string, ...args: string[]): Promise<string | number | null>;
-}
-
-async function reloadScript(redis: RedisLuaClient): Promise<void> {
+async function reloadScript(redis: Redis): Promise<void> {
   const result = await redis.call("SCRIPT", "LOAD", DUAL_XADD_SCRIPT);
   cachedSha = String(result);
 }
@@ -29,7 +24,7 @@ async function reloadScript(redis: RedisLuaClient): Promise<void> {
  * On NOSCRIPT error, reloads the script via SCRIPT LOAD and retries.
  */
 export async function dualXadd(
-  redis: RedisLuaClient,
+  redis: Redis,
   targetStream: string,
   messagesStream: string,
   maxlen: string,

@@ -9,7 +9,7 @@ import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import Redis from "ioredis";
+import { Redis } from "ioredis";
 import { dualXadd } from "./redis-lua.js";
 
 // --- Config ---
@@ -29,11 +29,9 @@ const STREAM_MAXLEN = 10000;
 
 // --- Redis connections (separate for XREAD BLOCK) ---
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const RedisConstructor = Redis as any;
-const redis = new RedisConstructor(REDIS_URL);
-const redisSub = new RedisConstructor(REDIS_URL);
-let redisPermSub: any = IS_MASTER ? new RedisConstructor(REDIS_URL) : null;
+const redis: Redis = new Redis(REDIS_URL);
+const redisSub: Redis = new Redis(REDIS_URL);
+let redisPermSub: Redis | null = IS_MASTER ? new Redis(REDIS_URL) : null;
 let permListenerStarted = false;
 
 // --- Build agent metadata from environment ---
@@ -180,9 +178,22 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
   ],
 }));
 
+const ReplyToolArgsSchema = z.object({
+  targetAgent: z.string(),
+  text: z.string(),
+});
+
+const MasterToolArgsSchema = z.object({
+  masterAgentId: z.string(),
+});
+
 mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   if (req.params.name === "reply") {
-    const { targetAgent, text } = req.params.arguments as { targetAgent: string; text: string };
+    const parsed = ReplyToolArgsSchema.safeParse(req.params.arguments);
+    if (!parsed.success) {
+      throw new Error("reply: invalid arguments");
+    }
+    const { targetAgent, text } = parsed.data;
     const msg = JSON.stringify({
       type: "message",
       from: AGENT_ID,
@@ -199,7 +210,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   if (req.params.name === "list_agents") {
     const agentIds = await redis.smembers(`${P}:agents`);
     const agents = await Promise.all(
-      agentIds.map(async (id: string) => {
+      agentIds.map(async (id) => {
         const meta = await redis.hgetall(`${P}:meta:${id}`);
         const online = await redis.exists(`${P}:presence:${id}`);
         return { agentId: id, displayName: meta.displayName ?? id, online: !!online };
@@ -209,12 +220,16 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   }
 
   if (req.params.name === "add_master") {
-    const { masterAgentId } = req.params.arguments as { masterAgentId: string };
+    const parsed = MasterToolArgsSchema.safeParse(req.params.arguments);
+    if (!parsed.success) {
+      throw new Error("add_master: invalid arguments");
+    }
+    const { masterAgentId } = parsed.data;
     await redis.sadd(`${P}:masters`, masterAgentId);
     // Start permission listener if adding self and not already listening
     if (masterAgentId === AGENT_ID && !permListenerStarted) {
       if (!redisPermSub) {
-        redisPermSub = new RedisConstructor(REDIS_URL);
+        redisPermSub = new Redis(REDIS_URL);
       }
       listenPermissionStream();
       permListenerStarted = true;
@@ -224,7 +239,11 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   }
 
   if (req.params.name === "remove_master") {
-    const { masterAgentId } = req.params.arguments as { masterAgentId: string };
+    const parsed = MasterToolArgsSchema.safeParse(req.params.arguments);
+    if (!parsed.success) {
+      throw new Error("remove_master: invalid arguments");
+    }
+    const { masterAgentId } = parsed.data;
     await redis.srem(`${P}:masters`, masterAgentId);
     return { content: [{ type: "text" as const, text: `master removed: ${masterAgentId}` }] };
   }
@@ -270,6 +289,21 @@ mcp.setNotificationHandler(PermissionRequestSchema, async ({ params }) => {
   await dualXadd(redis, `${P}:permissions`, `${P}:messages`, String(STREAM_MAXLEN), msg);
 });
 
+// --- Stream payload schemas ---
+
+const AgentStreamPayloadSchema = z.object({
+  type: z.string().optional(),
+  from: z.string(),
+  fromDisplayName: z.string(),
+  text: z.string(),
+});
+
+const PermissionStreamPayloadSchema = z.object({
+  from: z.string(),
+  fromDisplayName: z.string(),
+  text: z.string(),
+});
+
 // --- Subscribe to own agent stream ---
 
 async function listenAgentStream() {
@@ -285,9 +319,9 @@ async function listenAgentStream() {
           if (dataIndex === -1) continue;
           const raw = fields[dataIndex + 1];
           try {
-            const data = JSON.parse(raw) as {
-              type?: string; from: string; fromDisplayName: string; text: string;
-            };
+            const parsed = AgentStreamPayloadSchema.safeParse(JSON.parse(raw));
+            if (!parsed.success) continue;
+            const data = parsed.data;
 
             // Skip permission requests on agent stream
             if (data.type === "permission_request") continue;
@@ -340,9 +374,9 @@ async function listenPermissionStream() {
           if (dataIndex === -1) continue;
           const raw = fields[dataIndex + 1];
           try {
-            const data = JSON.parse(raw) as {
-              from: string; fromDisplayName: string; text: string;
-            };
+            const parsed = PermissionStreamPayloadSchema.safeParse(JSON.parse(raw));
+            if (!parsed.success) continue;
+            const data = parsed.data;
             // Skip own permission requests
             if (data.from === AGENT_ID) continue;
             await mcp.notification({
